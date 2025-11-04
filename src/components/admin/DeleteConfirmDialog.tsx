@@ -9,27 +9,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+// 1. Cambiamos 'userName' a 'itemName' en la interfaz
 interface DeleteConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  userName: string;
+  itemName: string; // Nombre genérico para Usuario o Producto
 }
 
 export const DeleteConfirmDialog = ({
   isOpen,
   onClose,
   onConfirm,
-  userName,
+  itemName, // Usamos la prop genérica
 }: DeleteConfirmDialogProps) => {
+  // Determinamos el tipo de ítem para el mensaje, asumiendo que el nombre es suficiente
+  const itemType = itemName.toLowerCase().includes('usuario') ? 'el usuario' : 'el ítem';
+
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent className="bg-card border-border">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-accent">¿Estás seguro?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. Se eliminará permanentemente el usuario{' '}
-            <span className="font-semibold text-foreground">{userName}</span>.
+            Esta acción no se puede deshacer. Se eliminará permanentemente {itemType}
+            <span className="font-semibold text-foreground"> {itemName}</span>.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -45,3 +49,4 @@ export const DeleteConfirmDialog = ({
     </AlertDialog>
   );
 };
+
