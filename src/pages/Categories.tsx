@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { ProductCard } from '@/components/public/ProductCard';
-import { products } from '@/lib/products';
+import { demoProductsList } from '@/lib/productsData';
 import { Button } from '@/components/ui/button';
 import { Gamepad2, Monitor, Headphones, Dice5, Shirt } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,8 +20,8 @@ const Categories = () => {
 
   const filteredProducts =
     activeCategory === 'all'
-      ? products
-      : products.filter((p) => p.category === activeCategory);
+      ? demoProductsList
+      : demoProductsList.filter((p) => p.category === activeCategory);
 
   return (
     <div className="min-h-screen bg-background">

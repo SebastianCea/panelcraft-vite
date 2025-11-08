@@ -1,6 +1,6 @@
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { ProductCard } from '@/components/public/ProductCard';
-import { getFeaturedProducts } from '@/lib/products';
+import { getFeaturedProducts } from '@/lib/productStorage';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Gamepad2, Zap, ShoppingBag } from 'lucide-react';

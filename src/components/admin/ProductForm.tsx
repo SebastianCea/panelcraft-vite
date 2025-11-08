@@ -20,12 +20,15 @@ interface ProductFormProps {
 }
 
 export const ProductForm = ({product, onSubmit, onCancel }: ProductFormProps) => {
+
   const [formData, setFormData] = useState<ProductFormData>({
     name: product?.name || '',
     price: product?.price || 0,
     category: product?.category || 'accesorios', 
     description: product?.description || '',
     stock: product?.stock || 0,
+    image: product?.image || '', // 💡 Debe ser cadena vacía si no hay imagen
+    minStock: product?.minStock || 5, // 💡 Añadir el campo con un valor por defecto (ej. 5)
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,7 +82,7 @@ export const ProductForm = ({product, onSubmit, onCancel }: ProductFormProps) =>
             placeholder="Ej: 49990"
             value={formData.price}
             onChange={handleChange}
-            min="0"
+            min=""
             required
             className="bg-input border-border"
           />
@@ -93,6 +96,21 @@ export const ProductForm = ({product, onSubmit, onCancel }: ProductFormProps) =>
             type="number" 
             placeholder="Ej: 25"
             value={formData.stock}
+            onChange={handleChange}
+            min="0"
+            required
+            className="bg-input border-border"
+          />
+        </div>
+
+        {/* Stock Mínimo (Mismo div que precio/stock) */}
+        <div className="space-y-2">
+          <Label htmlFor="minStock">Stock Mínimo de Alerta *</Label>
+          <Input
+            id="minStock"
+            type="number" 
+            placeholder="Ej: 5 (Valor de alerta)"
+            value={formData.minStock}
             onChange={handleChange}
             min="0"
             required
@@ -139,6 +157,19 @@ export const ProductForm = ({product, onSubmit, onCancel }: ProductFormProps) =>
           />
         </div>
       </div> 
+      
+      {/* URL de Imagen */}
+      <div className="space-y-2 md:col-span-2">
+        <Label htmlFor="image">URL de la Imagen (Catálogo) *</Label>
+        <Input
+          id="image"
+          placeholder="Ej: https://miservidor.com/imagen.jpg"
+          value={formData.image}
+          onChange={handleChange} 
+          required
+          className="bg-input border-border"
+        />
+      </div>
 
       <div className="flex justify-end gap-3 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>

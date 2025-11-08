@@ -4,11 +4,11 @@ import { User, UserFormData } from '@/types/user'; // FIX: Usando alias @/
 import { Product, ProductFormData } from '@/types/product'; // FIX: Usando alias @/
 
 // Importaciones de USUARIOS desde storage.ts
-import { getUsers, addUser, updateUser, deleteUser } from '@/lib/storage'; // FIX: Usando alias @/
+import { getUsers, addUser, updateUser, deleteUser } from '@/lib/userStorage'; // FIX: Usando alias @/
 // Importaciones de PRODUCTOS desde productStorage.ts (NUEVO)
 import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage'; // FIX: Usando alias @/
 // Importación de datos demo. Asumimos que initializeDemoData solo inicializa USUARIOS.
-import { initializeDemoData } from '@/lib/demoData'; // FIX: Usando alias @/
+import { initializeDemoData } from '@/lib/InitializeDemoData'; // FIX: Usando alias @/
 
 import { Header } from '@/components/layout/Header'; // FIX: Usando alias @/
 import { Sidebar } from '@/components/layout/Sidebar'; // FIX: Usando alias @/

@@ -24,6 +24,9 @@ export const getProducts = (): Product[] => {
   }
 };
 
+
+
+
 /**
  * Guarda el arreglo completo de productos en localStorage.
  * @param products El arreglo completo de productos a guardar.
@@ -31,6 +34,9 @@ export const getProducts = (): Product[] => {
 const saveProducts = (products: Product[]): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
 };
+
+
+
 
 /**
  * Crea un nuevo producto.
@@ -42,9 +48,7 @@ export const addProduct = (data: ProductFormData): void => {
   const newProduct: Product = {
     ...data,
     id: makeProductId(),
-    // En una app real, aquí manejarías la URL de la imagen.
-    // Usamos un placeholder temporal por ahora.
-    image: 'https://placehold.co/400x400/CCCCCC/000000?text=Placeholder', 
+ 
   };
   
   // Agrega el nuevo producto y guarda la lista actualizada
@@ -81,4 +85,23 @@ export const deleteProduct = (id: string): void => {
   const products = getProducts();
   const filteredProducts = products.filter(p => p.id !== id);
   saveProducts(filteredProducts);
+};
+
+
+
+//CATALOGO
+export const getProductById = (id: string): Product | undefined => {
+  const products = getProducts(); 
+  return products.find(p => p.id === id);
+};
+
+export const getProductsByCategory = (category: string): Product[] => {
+  const products = getProducts(); 
+  return products.filter(p => p.category === category);
+};
+
+export const getFeaturedProducts = (): Product[] => {
+  const products = getProducts(); 
+  // Simplemente devuelve los primeros 6 productos disponibles
+  return products.slice(0, 6);
 };

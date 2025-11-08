@@ -6,6 +6,7 @@ export interface Product {
   category: 'consolas' | 'computadores' | 'accesorios' | 'juegos-mesa' | 'ropa';
   description?: string;
   stock: number;
+  minStock: number;
 
 }
 
@@ -18,4 +19,4 @@ export interface CartItem {
 
 
 // Este es el tipo de datos que se enviará desde el formulario
-export type ProductFormData = Omit<Product, 'id' | 'image'>;
+export type ProductFormData = Omit<Product, 'id'>;

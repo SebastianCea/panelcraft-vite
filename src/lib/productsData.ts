@@ -1,34 +1,5 @@
-import { User } from '@/types/user';
 import { Product } from '@/types/product'; // Importamos el tipo Producto
 
-// --- DATOS DE USUARIOS (EXISTENTE) ---
-export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  // ... (tus datos de Pablo Neruda, Víctor Jara, etc.)
-  {
-    rut: '12345678-9',
-    name: 'Pablo Neruda',
-    email: 'pablito@levelup.cl',
-    birthdate: '1904-07-12',
-    userType: 'Cliente',
-    address: 'Calle Falsa 123, Concepción',
-  },
-  {
-    rut: '43434312-1',
-    name: 'Víctor Jara',
-    email: 'victor.jara@levelup.cl',
-    birthdate: '1932-09-28',
-    userType: 'Vendedor',
-    address: 'Avenida Siempreviva 742, Santiago',
-  },
-  {
-    rut: '98765432-1',
-    name: 'Gabriela Mistral',
-    email: 'gmistral@levelup.cl',
-    birthdate: '1889-04-07',
-    userType: 'Administrador',
-    address: 'Paseo Bulnes 456, Valparaíso',
-  },
-];
 
 // --- DATOS DE PRODUCTOS (LISTA COMPLETA DE TU ARCHIVO products.ts) ---
 // NOTA: Para evitar conflictos, he renombrado la exportación original 'products' a 'demoProductsList'
@@ -42,6 +13,7 @@ export const demoProductsList: Product[] = [
     category: 'juegos-mesa',
     description: 'El clásico juego de estrategia para toda la familia',
     stock: 15,
+    minStock: 5,
   },
   {
     id: 'carcassonne-jdm',
@@ -51,6 +23,7 @@ export const demoProductsList: Product[] = [
     category: 'juegos-mesa',
     description: 'Construye tu ciudad medieval',
     stock: 12,
+    minStock: 5,
   },
   
   // Accesorios
@@ -62,6 +35,7 @@ export const demoProductsList: Product[] = [
     category: 'accesorios',
     description: 'Control oficial de Xbox con conexión inalámbrica',
     stock: 25,
+    minStock: 5,
   },
   {
     id: 'hyperx-hset',
@@ -71,6 +45,7 @@ export const demoProductsList: Product[] = [
     category: 'accesorios',
     description: 'Audio profesional para gaming',
     stock: 18,
+    minStock: 5,
   },
   {
     id: 'logitech-g502',
@@ -80,6 +55,7 @@ export const demoProductsList: Product[] = [
     category: 'accesorios',
     description: 'Precisión y comodidad para largas sesiones',
     stock: 30,
+    minStock: 5,
   },
   {
     id: 'razer-mousepad',
@@ -89,6 +65,7 @@ export const demoProductsList: Product[] = [
     category: 'accesorios',
     description: 'Superficie extendida para mouse y teclado',
     stock: 20,
+    minStock: 5,
   },
   
   // Consolas
@@ -100,6 +77,7 @@ export const demoProductsList: Product[] = [
     category: 'consolas',
     description: 'La consola de nueva generación de Sony',
     stock: 8,
+    minStock: 5,
   },
   {
     id: 'xbox-series-x',
@@ -109,6 +87,7 @@ export const demoProductsList: Product[] = [
     category: 'consolas',
     description: 'Potencia y rendimiento sin límites',
     stock: 10,
+    minStock: 5,
   },
   {
     id: 'switch-oled',
@@ -118,6 +97,7 @@ export const demoProductsList: Product[] = [
     category: 'consolas',
     description: 'Pantalla OLED vibrante y mayor almacenamiento',
     stock: 15,
+    minStock: 5,
   },
   
   // Computadores
@@ -129,6 +109,7 @@ export const demoProductsList: Product[] = [
     category: 'computadores',
     description: 'Setup completo para gaming en 4K',
     stock: 5,
+    minStock: 5,
   },
   {
     id: 'laptop-asus-rog',
@@ -138,6 +119,7 @@ export const demoProductsList: Product[] = [
     category: 'computadores',
     description: 'Portátil gamer con RTX 4060',
     stock: 7,
+    minStock: 5,
   },
   
   // Ropa
@@ -149,6 +131,7 @@ export const demoProductsList: Product[] = [
     category: 'ropa',
     description: 'Polera oficial Level-Up de algodón premium',
     stock: 50,
+    minStock: 5,
   },
   {
     id: 'hoodie-gaming',
@@ -158,32 +141,6 @@ export const demoProductsList: Product[] = [
     category: 'ropa',
     description: 'Comodidad para maratones de gaming',
     stock: 35,
+    minStock: 5,
   },
 ];
-
-
-// --- FUNCIÓN DE INICIALIZACIÓN DE DEMO (ACTUALIZADA) ---
-export const initializeDemoData = () => {
-  const USER_KEY = 'levelup_users';
-  const PRODUCT_KEY = 'levelup_products'; // Nueva clave para productos
-
-  // 1. Inicializar Usuarios (Lógica existente)
-  const existingUsers = localStorage.getItem(USER_KEY);
-  if (!existingUsers || JSON.parse(existingUsers).length === 0) {
-    const users: User[] = demoUsers.map((user, index) => ({
-      ...user,
-      id: `demo-u-${index + 1}`,
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-    localStorage.setItem(USER_KEY, JSON.stringify(users));
-  }
-
-  // 2. Inicializar Productos (NUEVO BLOQUE)
-  // Usamos demoProductsList (la lista completa que me enviaste)
-  const existingProducts = localStorage.getItem(PRODUCT_KEY);
-  if (!existingProducts || JSON.parse(existingProducts).length === 0) {
-    // Almacenamos la lista completa de productos directamente
-    localStorage.setItem(PRODUCT_KEY, JSON.stringify(demoProductsList));
-  }
-};
