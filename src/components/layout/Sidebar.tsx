@@ -1,4 +1,4 @@
-import { Home, Users, Package, ShoppingCart, X } from 'lucide-react';
+import { Home, Users, Package, ShoppingCart, X, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +14,7 @@ const menuItems = [
   { id: 'users', label: 'Usuarios', icon: Users },
   { id: 'products', label: 'Productos', icon: Package },
   { id: 'orders', label: 'Órdenes', icon: ShoppingCart },
+  { id: 'store', label: 'Ir A Tienda', icon: Store, isExternalLink: true },
 ];
 
 export const Sidebar = ({ activeSection, onSectionChange, isOpen, onClose }: SidebarProps) => {
@@ -49,30 +50,44 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onClose }: Sid
           </Button>
         </div>
         
-        <nav className="space-y-2 p-4">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSectionChange(item.id);
-                  onClose();
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left font-medium transition-all",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-md"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-lg">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+ <nav className="space-y-2 p-4">
+     {menuItems.map((item) => {
+      const Icon = item.icon;
+      const isActive = activeSection === item.id;
+      
+      // 💡 CAMBIO 2: Lógica del Click
+      const handleClick = () => {
+       if (item.id === 'store') {
+        // REDIRECCIÓN: Navega a la raíz del sitio (el home de la tienda)
+        window.location.href = '/'; 
+       } else {
+        // Comportamiento normal (cambiar sección del admin)
+        onSectionChange(item.id);
+       }
+       onClose(); // Cierra el sidebar después de la acción
+      };
+
+      return (
+       <button
+        key={item.id}
+        onClick={handleClick} // Usamos la nueva función
+        className={cn(
+         "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left font-medium transition-all",
+         //CAMBIO 3: Estilo condicional para el botón de la tienda
+         item.id === 'store' 
+          ? "border-2 border-accent text-accent hover:bg-accent/20"
+          : (isActive
+           ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-md"
+           : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+          )
+        )}
+       >
+        <Icon className="h-5 w-5" />
+        <span className="text-lg">{item.label}</span>
+       </button>
+      );
+     })}
+    </nav>
       </aside>
     </>
   );

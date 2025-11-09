@@ -1,12 +1,14 @@
 import { demoUsers } from './usersData';
 import { User } from '@/types/user';
 import { demoProductsList } from './productsData';
+import {demoOrders} from './ordersData'
 
 
 // --- FUNCIÓN DE INICIALIZACIÓN DE DEMO (ACTUALIZADA) ---
 export const initializeDemoData = () => {
   const USER_KEY = 'levelup_users';
   const PRODUCT_KEY = 'levelup_products'; // Nueva clave para productos
+  const ORDER_KEY = 'levelup_orders'; // 💡 Clave para Órdenes
 
   // 1. Inicializar Usuarios 
   const existingUsers = localStorage.getItem(USER_KEY);
@@ -29,6 +31,14 @@ export const initializeDemoData = () => {
   }
 
   //3. Inicializar Ordenes
+  // 💡 VERIFICACIÓN: Usamos localStorage.getItem() con la clave de Órdenes
+ const existingOrders = localStorage.getItem(ORDER_KEY);
+ 
+ // 💡 GUARDADO: Si no existe (o está vacío), guardamos los datos demo de órdenes
+ if (!existingOrders || JSON.parse(existingOrders).length === 0) {
+  localStorage.setItem(ORDER_KEY, JSON.stringify(demoOrders));
+  console.log('Órdenes demo inicializadas en localStorage.');
+ }
 
 
 };

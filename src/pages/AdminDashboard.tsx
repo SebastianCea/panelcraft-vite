@@ -1,28 +1,52 @@
 import { useState, useEffect } from 'react';
+
+
+//******TYPES*******
+//Importamos tipos de usuario
 import { User, UserFormData } from '@/types/user'; // FIX: Usando alias @/
 // Importamos tipos de Producto
-import { Product, ProductFormData } from '@/types/product'; // FIX: Usando alias @/
+import { Product, ProductFormData } from '@/types/product'; // FIX: Usando alias @/ 
+// Importamos tipos de Orden
+import { Order } from '@/types/order';
 
+
+//***STORAGES*****/
 // Importaciones de USUARIOS desde storage.ts
 import { getUsers, addUser, updateUser, deleteUser } from '@/lib/userStorage'; // FIX: Usando alias @/
 // Importaciones de PRODUCTOS desde productStorage.ts (NUEVO)
-import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage'; // FIX: Usando alias @/
-// Importación de datos demo. Asumimos que initializeDemoData solo inicializa USUARIOS.
+import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage'; // FIX: Usando alias @
+
+import {filterOrdersByStatus, getPaymentStatusSummary, getOrders, saveOrders, searchOrders, calculateGrowthRate} from '@/lib/orderStorage'
+
+
+// Importación de datos demo. Solo inicializa.
 import { initializeDemoData } from '@/lib/InitializeDemoData'; // FIX: Usando alias @/
 
+//Componentes layout
 import { Header } from '@/components/layout/Header'; // FIX: Usando alias @/
 import { Sidebar } from '@/components/layout/Sidebar'; // FIX: Usando alias @/
+
+
+//Importamos componentes de usuario
 import { UserTable } from '@/components/admin/UserTable'; // FIX: Usando alias @/
-import { UserModal } from '@/components/admin/UserModal'; // FIX: Usando alias @/
+import { UserFormModal } from '@/components/admin/UserFormModal'; // FIX: Usando alias @/
 import { UserViewModal } from '@/components/admin/UserViewModal'; // FIX: Usando alias @/
-import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; // FIX: Usando alias @/
+
 // Importamos componentes de Producto
 import { ProductTable } from '@/components/admin/ProductTable'; // FIX: Usando alias @/
-import { ProductModal } from '@/components/admin/ProductModal'; // FIX: Usando alias @/
+import { ProductFormModal } from '@/components/admin/ProductFormModal'; // FIX: Usando alias @/
 import { ProductViewModal } from '@/components/admin/ProductViewModal'; // FIX: Usando alias @/
 
+//Importamos componentes de Orden
+import { OrderTable } from '@/components/admin/OrderTable'; // Necesitas crear este archivo
+import { OrderDetailModal } from '@/components/admin/OrderDetailModal'; // Necesitas crear este archi
+
+
+
+//Importamos componentes generales
+import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; // FIX: Usando alias @/
 import { Button } from '@/components/ui/button'; // FIX: Usando alias @/
-import { Plus, Users as UsersIcon, Package, ShoppingCart, TrendingUp } from 'lucide-react';
+import { Plus, Users as UsersIcon, Package, ShoppingCart, TrendingUp, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // FIX: Usando alias @/
 
@@ -32,15 +56,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // Dado que no tengo el nombre exacto de la función, la llamo aquí de forma provisional.
 
 const AdminDashboard = () => {
-  // --- ESTADO DE USUARIOS (EXISTENTE) ---
+  // --- ESTADO DE USUARIOS  ---
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // --- ESTADO DE PRODUCTOS (NUEVO) ---
+  // --- ESTADO DE PRODUCTOS  ---
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null); 
+
+  // --- ESTADO DE ÓRDENES  ---
+  const [orders, setOrders] = useState<Order[]>([]); // 💡 Lista de órdenes
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null); 
+
+  // 💡 ESTADOS PARA CRECIMIENTO
+const [growthPercentage, setGrowthPercentage] = useState(0); 
+const [growthPeriod, setGrowthPeriod] = useState('vs mes anterior'); // Inicializamos el texto
+//
+
   
   // --- ESTADO DE UI Y MODALES ---
   const [activeSection, setActiveSection] = useState('home');
@@ -51,18 +85,6 @@ const AdminDashboard = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
 
-  // --- LÓGICA DE CARGA DE DATOS ---
-  useEffect(() => {
-    // 1. Inicialización de datos DEMO (DEBES CREAR initializeDemoProducts() en lib/demoData.ts)
-    initializeDemoData(); // Inicializa Usuarios
-    // --- ESTO FALTA Y DEBE HACERSE MANUALMENTE EN lib/demoData.ts ---
-    // initializeDemoProducts(); // Si no existe, los productos estarán vacíos.
-    // ------------------------------------------------------------------
-
-    loadUsers();
-    loadProducts(); // Cargar productos al inicio
-  }, []);
-
   const loadUsers = () => {
     setUsers(getUsers());
   };
@@ -72,7 +94,28 @@ const AdminDashboard = () => {
     setProducts(getProducts());
   };
 
-  // --- LÓGICA DE USUARIO (EXISTENTE) ---
+  const loadOrders = () => {
+    const loadedOrders = getOrders();
+    setOrders(loadedOrders); 
+    
+    // 💡 CALCULAR Y GUARDAR EL CRECIMIENTO
+    const growthData = calculateGrowthRate();
+    setGrowthPercentage(growthData.percentage);
+    setGrowthPeriod(growthData.comparisonPeriod);
+  };
+
+  // --- LÓGICA DE CARGA DE DATOS ---
+  useEffect(() => {
+    // 1. Inicialización de datos DEMO (DEBES CREAR initializeDemoProducts() en lib/demoData.ts)
+    initializeDemoData(); // Inicializa Usuarios
+    loadUsers(); //Carga de usuario
+    loadProducts(); // Cargar productos al inicio
+    loadOrders(); // 💡 Llamamos a la nueva función
+  }, []);
+
+
+
+  // --- LÓGICA DE USUARIO  ---
 
   const handleCreateUser = (data: UserFormData) => {
     try {
@@ -167,6 +210,13 @@ const AdminDashboard = () => {
     }
   };
 
+  //LOGICA DE ORDENES
+  const handleViewOrderDetails = (order: Order) => {
+   setSelectedOrder(order);
+  // Reutilizamos el estado general de visualización (ViewModal)
+   setViewModalOpen(true); 
+  };
+
 
   // --- LÓGICA DE CONFIRMACIÓN DE ELIMINACIÓN (UNIVERSAL) ---
   const confirmDelete = () => {
@@ -237,21 +287,27 @@ const AdminDashboard = () => {
                   <ShoppingCart className="h-4 w-4 text-accent" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-accent">0</div>
+                  <div className="text-2xl font-bold text-accent">{orders.length}</div>
                   <p className="text-xs text-muted-foreground">Próximamente</p>
                 </CardContent>
               </Card>
 
               <Card className="border-border bg-card hover:border-accent/50 transition-colors">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-accent" />
+                    <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-accent" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-accent">+0%</div>
-                  <p className="text-xs text-muted-foreground">vs mes anterior</p>
+                    <div className="text-2xl font-bold text-accent">
+                      {/* 💡 Muestra el porcentaje real */}
+                      {`${growthPercentage > 0 ? '+' : ''}${
+                          (growthPercentage * 100).toFixed(1)
+                      }%`}
+                    </div>
+                    {/* 💡 Muestra el período de comparación real */}
+                    <p className="text-xs text-muted-foreground">{growthPeriod}</p>
                 </CardContent>
-              </Card>
+            </Card>
             </div>
 
             <Card className="border-border bg-card">
@@ -275,10 +331,22 @@ const AdminDashboard = () => {
                   <Package className="mr-2 h-4 w-4" />
                   Gestionar Productos
                 </Button>
-                <Button variant="outline" disabled>
+                <Button 
+                onClick={() => setActiveSection('orders')}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
                   <ShoppingCart className="mr-2 h-4 w-4" />
                   Ver Órdenes
                 </Button>
+                {/* 4. 🚀 IR A TIENDA (NUEVO BOTÓN) */}
+        <Button 
+         // 💡 Esta es la lógica de redirección
+         onClick={() => window.location.href = '/'} 
+         variant="outline" // Estilo para diferenciarlo
+        >
+         <Store className="mr-2 h-4 w-4" />
+         Ir A Tienda
+        </Button>
               </CardContent>
             </Card>
           </div>
@@ -342,18 +410,21 @@ const AdminDashboard = () => {
 
       case 'orders':
         return (
-          <div className="space-y-6">
-            <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Órdenes</h1>
-            <Card className="border-border bg-card">
-              <CardContent className="p-12 text-center">
-                <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                <p className="text-xl text-muted-foreground">
-                  Sección de órdenes próximamente
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+     <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+       <div>
+        <h1 className="mb-2 text-4xl font-bold text-yellow-400">Gestión de Órdenes</h1>
+        <p className="text-lg text-muted-foreground">Administra y visualiza todas las órdenes.</p>
+       </div>
+      </div>
+      
+      {/* 💡 RENDERIZAR TABLA DE ÓRDENES */}
+      <OrderTable 
+       orders={orders} 
+       onViewDetails={handleViewOrderDetails} // La función que definimos
+      />
+     </div>
+    );
 
       default:
         return null;
@@ -377,7 +448,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* MODAL DE USUARIO (CREAR/EDITAR) */}
-      <UserModal
+      <UserFormModal
         isOpen={modalOpen}
         onClose={() => {
           setModalOpen(false);
@@ -390,7 +461,7 @@ const AdminDashboard = () => {
       {/* MODAL DE PRODUCTO (CREAR/EDITAR) */}
       {/* FIX: Renderizado condicional si la sección es 'products' */}
       {activeSection === 'products' && (
-        <ProductModal
+        <ProductFormModal
           isOpen={productModalOpen}
           onClose={() => {
             setProductModalOpen(false);
@@ -423,6 +494,19 @@ const AdminDashboard = () => {
             setSelectedProduct(null);
           }}
           product={selectedProduct}
+        />
+      )}
+      {/* MODAL DE VISTA DE ORDENES */}
+      {activeSection === 'orders' && ( // 💡 RENDERIZAR SÓLO EN LA SECCIÓN DE ÓRDENES
+        <OrderDetailModal
+          isOpen={viewModalOpen} // Reutiliza el estado general de visualización
+          onClose={() => {
+            // Limpia los estados después de cerrar
+            setViewModalOpen(false);
+            setSelectedOrder(null); 
+          }}
+          // Le pasamos la orden que fue seleccionada al hacer clic en la tabla
+          order={selectedOrder}
         />
       )}
 

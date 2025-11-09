@@ -15,7 +15,7 @@ interface UserModalProps {
   onSubmit: (data: UserFormData) => void;
 }
 
-export const UserModal = ({ isOpen, onClose, user, onSubmit }: UserModalProps) => {
+export const UserFormModal = ({ isOpen, onClose, user, onSubmit }: UserModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-card border-border">

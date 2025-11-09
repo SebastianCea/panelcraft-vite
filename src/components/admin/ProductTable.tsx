@@ -30,6 +30,7 @@ export const ProductTable = ({ products, onEdit, onDelete, onView }: ProductTabl
         <TableHeader>
           <TableRow className="bg-secondary hover:bg-secondary">
             {/* 3. Ajustamos los encabezados a los campos de Producto */}
+            <TableHead className="text-secondary-foreground font-bold">Código</TableHead>
             <TableHead className="text-secondary-foreground font-bold">Nombre</TableHead>
             <TableHead className="text-secondary-foreground font-bold">Categoría</TableHead>
             <TableHead className="text-secondary-foreground font-bold">Precio</TableHead>
@@ -47,7 +48,9 @@ export const ProductTable = ({ products, onEdit, onDelete, onView }: ProductTabl
                 key={product.id} 
                 className={"hover:bg-muted/50"} 
               >
-                
+                {/* Id */}
+                <TableCell className="font-medium">{product.id}</TableCell>
+
                 {/* Nombre */}
                 <TableCell className="font-medium">{product.name}</TableCell>
                 

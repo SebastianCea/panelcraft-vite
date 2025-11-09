@@ -15,7 +15,7 @@ interface ProductModalProps {
   onSubmit: (data: ProductFormData) => void;
 }
 
-export const ProductModal = ({ isOpen, onClose, product, onSubmit }: ProductModalProps) => {
+export const ProductFormModal = ({ isOpen, onClose, product, onSubmit }: ProductModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-card border-border">
