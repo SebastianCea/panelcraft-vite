@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // 💡 MODIFICADO: Se añade useNavigate
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 const Login = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate(); // 💡 AÑADIDO: Hook para redirección
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -26,10 +27,20 @@ const Login = () => {
   const onSubmit = (data: LoginFormData) => {
     console.log('Login:', { ...data, isAdmin });
     toast({
-      title: 'Formulario válido',
-      description: 'Datos listos para enviar al backend',
+      title: 'Inicio de Sesión Exitoso', // 💡 MODIFICADO
+      description: 'Redirigiendo...',
     });
+    
     // Aquí se integrará con el backend de Spring Boot
+    
+    // 💡 AÑADIDO: Lógica de redirección
+    setTimeout(() => {
+      if (isAdmin) {
+        navigate('/admin'); 
+      } else {
+        navigate('/'); 
+      }
+    }, 500); 
   };
 
   return (
@@ -113,6 +124,13 @@ const Login = () => {
             <span className="text-muted-foreground">¿No tienes cuenta? </span>
             <Link to="/registro" className="text-accent hover:underline font-medium">
               Crear cuenta
+            </Link>
+          </div>
+          
+          {/* 💡 AÑADIDO: Enlace para volver a la página principal */}
+          <div className="text-center text-sm mt-4">
+            <Link to="/" className="text-muted-foreground hover:underline">
+              ← Volver a la tienda
             </Link>
           </div>
         </CardContent>
