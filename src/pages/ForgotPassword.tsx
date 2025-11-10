@@ -111,6 +111,13 @@ const ForgotPassword = () => {
             <ArrowLeft className="h-4 w-4" />
             Volver a Iniciar Sesión
           </Link>
+          
+          {/* 💡 AÑADIDO: Enlace para volver a la página principal */}
+          <div className="text-center text-sm mt-4">
+            <Link to="/" className="text-muted-foreground hover:underline">
+              ← Volver a la tienda
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
