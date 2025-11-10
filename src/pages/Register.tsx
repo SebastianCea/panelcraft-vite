@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // 💡 MODIFICADO: Se añade useNavigate
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const Register = () => {
   const { toast } = useToast();
+  const navigate = useNavigate(); // 💡 AÑADIDO: Hook para redirección
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -34,10 +35,16 @@ const Register = () => {
   const onSubmit = (data: RegisterFormData) => {
     console.log('Registro:', data);
     toast({
-      title: 'Formulario válido',
-      description: 'Datos listos para enviar al backend',
+      title: 'Registro Exitoso', // 💡 MODIFICADO
+      description: 'Tu cuenta ha sido creada. Redirigiendo a Home.', // 💡 MODIFICADO
     });
+    
     // Aquí se integrará con el backend de Spring Boot
+    
+    // 💡 AÑADIDO: Lógica de redirección
+    setTimeout(() => {
+      navigate('/'); 
+    }, 500); 
   };
 
   const months = [
@@ -332,6 +339,13 @@ const Register = () => {
             <span className="text-muted-foreground">¿Ya tienes cuenta? </span>
             <Link to="/login" className="text-accent hover:underline font-medium">
               Iniciar sesión
+            </Link>
+          </div>
+
+          {/* 💡 AÑADIDO: Enlace para volver a la página principal */}
+          <div className="text-center text-sm mt-4">
+            <Link to="/" className="text-muted-foreground hover:underline">
+              ← Volver a la tienda
             </Link>
           </div>
         </CardContent>
