@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingCart, User } from 'lucide-react';
+import { Menu, X, ShoppingCart, User, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCartCount } from '@/lib/cartStorage';
@@ -70,6 +70,13 @@ export const PublicHeader = () => {
               </Button>
             </Link>
 
+            <Link to="/login">
+              <Button variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+                <LogIn className="h-5 w-5 mr-2" />
+                Iniciar Sesión
+              </Button>
+            </Link>
+
             <Link to="/admin">
               <Button variant="ghost" size="icon" className="text-accent hover:text-accent hover:bg-accent/10">
                 <User className="h-5 w-5" />
@@ -118,6 +125,14 @@ export const PublicHeader = () => {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/login"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-lg font-medium text-accent hover:bg-accent/10 rounded-lg"
+            >
+              <LogIn className="h-5 w-5" />
+              Iniciar Sesión
+            </Link>
             <Link
               to="/admin"
               onClick={() => setIsOpen(false)}
