@@ -8,9 +8,11 @@ import { CartItem } from '@/types/product';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import { GuestCheckoutModal, GuestCheckoutFormData } from '@/components/public/GuestCheckoutModal'; // 💡 Importación del nuevo modal
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isGuestModalOpen, setIsGuestModalOpen] = useState(false); // 💡 Estado del modal
 
   useEffect(() => {
     loadCart();
@@ -20,10 +22,19 @@ const Cart = () => {
     setCartItems(getCart());
   };
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity < 1) return;
+  // 💡 Lógica de actualización de cantidad con validación y toast
+  const handleUpdateQuantity = (productId: string, newQuantity: number, productName: string, maxStock: number) => {
+    if (newQuantity < 1) {
+      toast.error('La cantidad mínima es 1.');
+      return;
+    }
+    if (newQuantity > maxStock) {
+      toast.error(`Stock máximo alcanzado para ${productName}.`);
+      return;
+    }
     updateQuantity(productId, newQuantity);
     loadCart();
+    toast.info(`Cantidad de ${productName} actualizada a ${newQuantity}`);
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
@@ -40,6 +51,36 @@ const Cart = () => {
     toast.success('Carrito vaciado');
     window.dispatchEvent(new Event('cartUpdated'));
   };
+
+  // 💡 Función de confirmación de checkout (maneja los datos del modal)
+  const handleConfirmCheckout = (data: GuestCheckoutFormData) => {
+    // A futuro, aquí se enviaría a Spring Boot:
+    // 1. Crear el pedido con estado "Pendiente de Pago" y los datos del invitado (data).
+    // 2. Redirigir a la pasarela de pago.
+    
+    console.log('Checkout como Invitado con datos:', data);
+    toast.success(`¡Compra exitosa! Se ha generado un pedido a nombre de ${data.firstName}.`);
+    
+    // Simulación: Limpia el carrito
+    clearCart();
+    loadCart();
+    window.dispatchEvent(new Event('cartUpdated'));
+  };
+
+  // 💡 Función que se ejecuta al presionar "Proceder al Pago"
+  const handleProceedToPayment = () => {
+    // Simulación: Comprueba si el usuario está logueado
+    const isUserLoggedIn = false; // Se puede cambiar a true para probar el otro flujo
+    
+    if (isUserLoggedIn) {
+        // Flujo de usuario logueado (se asumiría que tiene dirección guardada)
+        toast.info('Redirigiendo a pasarela de pago (Usuario logueado)');
+    } else {
+        // Flujo de compra como invitado
+        setIsGuestModalOpen(true);
+    }
+  };
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CL', {
@@ -119,7 +160,12 @@ const Cart = () => {
                             size="icon"
                             className="h-8 w-8"
                             onClick={() =>
-                              handleUpdateQuantity(item.product.id, item.quantity - 1)
+                              handleUpdateQuantity(
+                                item.product.id, 
+                                item.quantity - 1, 
+                                item.product.name, 
+                                item.product.stock
+                              )
                             }
                             disabled={item.quantity <= 1}
                           >
@@ -132,7 +178,9 @@ const Cart = () => {
                             onChange={(e) =>
                               handleUpdateQuantity(
                                 item.product.id,
-                                parseInt(e.target.value) || 1
+                                parseInt(e.target.value) || 1,
+                                item.product.name,
+                                item.product.stock
                               )
                             }
                             className="w-16 text-center"
@@ -142,7 +190,12 @@ const Cart = () => {
                             size="icon"
                             className="h-8 w-8"
                             onClick={() =>
-                              handleUpdateQuantity(item.product.id, item.quantity + 1)
+                              handleUpdateQuantity(
+                                item.product.id, 
+                                item.quantity + 1,
+                                item.product.name, 
+                                item.product.stock
+                              )
                             }
                             disabled={item.quantity >= item.product.stock}
                           >
@@ -209,7 +262,7 @@ const Cart = () => {
                 <Button
                   className="mt-6 w-full bg-accent text-accent-foreground hover:bg-accent/90"
                   size="lg"
-                  onClick={() => toast.info('Función de pago próximamente')}
+                  onClick={handleProceedToPayment} // 💡 Llama a la nueva función
                 >
                   Proceder al Pago
                 </Button>
@@ -221,6 +274,16 @@ const Cart = () => {
                 >
                   <Link to="/categorias">Seguir Comprando</Link>
                 </Button>
+                
+                {/* 💡 AÑADIDO: Opción para Iniciar Sesión/Registrarse */}
+                <div className='text-center mt-4 text-sm'>
+                  <p className='text-muted-foreground'>
+                    ¿Ya tienes cuenta? 
+                    <Link to="/login" className="text-accent hover:underline ml-1">
+                      Inicia Sesión
+                    </Link>
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -235,6 +298,13 @@ const Cart = () => {
           </p>
         </div>
       </footer>
+      
+      {/* 💡 RENDERIZADO DEL MODAL DE CHECKOUT INVITADO */}
+      <GuestCheckoutModal
+        isOpen={isGuestModalOpen}
+        onClose={() => setIsGuestModalOpen(false)}
+        onConfirm={handleConfirmCheckout}
+      />
     </div>
   );
 };
