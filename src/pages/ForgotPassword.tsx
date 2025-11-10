@@ -1,20 +1,41 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/lib/validations/auth';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Recuperar contraseña:', email);
+  const form = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: '',
+    },
+  });
+
+  const onSubmit = (data: ForgotPasswordFormData) => {
+    console.log('Recuperar contraseña:', data.email);
+    setSubmittedEmail(data.email);
     setSubmitted(true);
+    toast({
+      title: 'Código enviado',
+      description: 'Revisa tu correo electrónico',
+    });
     // Aquí se integrará con el backend de Spring Boot para enviar el código
+  };
+
+  const handleResend = () => {
+    setSubmitted(false);
+    form.reset();
   };
 
   return (
@@ -32,32 +53,41 @@ const ForgotPassword = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           {!submitted ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="usuario@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-input border-border"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Correo Electrónico</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="usuario@ejemplo.com"
+                          className="bg-input border-border"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <Button 
-                type="submit" 
-                className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                Enviar Código
-              </Button>
-            </form>
+                <Button 
+                  type="submit" 
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                  disabled={form.formState.isSubmitting}
+                >
+                  Enviar Código
+                </Button>
+              </form>
+            </Form>
           ) : (
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-foreground">
-                  Revisa tu correo <strong className="text-accent">{email}</strong>
+                  Revisa tu correo <strong className="text-accent">{submittedEmail}</strong>
                 </p>
                 <p className="text-muted-foreground text-sm mt-2">
                   El código expira en 15 minutos
@@ -65,7 +95,7 @@ const ForgotPassword = () => {
               </div>
 
               <Button 
-                onClick={() => setSubmitted(false)}
+                onClick={handleResend}
                 variant="outline"
                 className="w-full border-accent text-accent hover:bg-accent/10"
               >
