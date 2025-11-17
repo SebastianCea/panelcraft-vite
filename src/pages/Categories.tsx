@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { PublicHeader } from '@/components/public/PublicHeader';
+import { useState, useEffect } from 'react'; // 💡 Importar useEffectimport { PublicHeader } from '@/components/public/PublicHeader';
+import { Product } from '@/types/product'; // 💡 Importar el tipo Product
 import { ProductCard } from '@/components/public/ProductCard';
-import { demoProductsList } from '@/lib/productsData';
+import { getProducts } from '@/lib/productStorage';
+//import { demoProductsList } from '@/lib/productsData';
 import { Button } from '@/components/ui/button';
 import { Gamepad2, Monitor, Headphones, Dice5, Shirt } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PublicHeader } from '@/components/public/PublicHeader';
 
 const categories = [
   { id: 'all', name: 'Todos', icon: Gamepad2 },
@@ -18,11 +20,21 @@ const categories = [
 const Categories = () => {
   const [activeCategory, setActiveCategory] = useState('all');
 
-  const filteredProducts =
-    activeCategory === 'all'
-      ? demoProductsList
-      : demoProductsList.filter((p) => p.category === activeCategory);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
+  // 💡 NUEVO EFECTO: Cargar los productos al iniciar el componente
+  useEffect(() => {
+ // 🟢 Llama a la función que lee desde localStorage
+ setAllProducts(getProducts()); 
+   }, []);
+
+  const filteredProducts =
+  activeCategory === 'all'
+   ? allProducts // 🟢 AHORA USA EL ESTADO REAL
+   : allProducts.filter((p) => p.category.toLowerCase() === activeCategory);
+
+
+   
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />

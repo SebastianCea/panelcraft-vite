@@ -8,6 +8,8 @@ const STORAGE_KEY = 'levelup_orders';
 // FUNCIONES BÁSICAS DE STORAGE (Lectura/Escritura en localStorage)
 // -------------------------------------------------------------------
 
+
+
 /**
  * Lee todas las órdenes desde localStorage. Si no hay datos, inicializa con los datos demo.
  * @returns Array de todas las órdenes.
@@ -86,6 +88,31 @@ export const filterOrdersByStatus = (
  * Calcula un resumen de cuántas órdenes hay en cada estado de pago.
  * @returns Un objeto con el recuento por estado de pago.
  */
+// Función auxiliar para generar un ID de orden
+function makeOrderId(): string {
+    // ID de 8 dígitos simulado
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
+}
+
+/**
+ * Agrega una nueva orden a la lista y la guarda en localStorage.
+ * @param newOrder La orden ya construida (sin ID).
+ */
+export const addOrder = (orderData: Omit<Order, 'id'>): Order => {
+  const orders = getOrders();
+  
+    // Creamos la orden completa con un ID único
+    const newOrder: Order = {
+        ...orderData,
+        id: makeOrderId(),
+    };
+  
+  // Agregamos la nueva orden al inicio de la lista y guardamos
+  saveOrders([newOrder, ...orders]);
+    
+    return newOrder;
+};
+
 export const getPaymentStatusSummary = () => {
     const allOrders = getOrders();
     const summary = {

@@ -17,10 +17,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
         >
           <Menu className="h-6 w-6" />
         </Button>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⚡</span>
-          <h1 className="text-xl font-bold text-accent">LEVEL-UP</h1>
-        </div>
+        
         <div className="ml-auto">
           <p className="text-sm text-muted-foreground">Panel de Administración</p>
         </div>
