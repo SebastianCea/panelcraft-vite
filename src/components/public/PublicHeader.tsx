@@ -26,19 +26,28 @@ export const PublicHeader = () => {
   };
 
   const navItems = [
-    { path: '/', label: 'Inicio' },
+    { path: '/home', label: 'Inicio' },
     { path: '/categorias', label: 'Categorías' },
     { path: '/carrito', label: 'Carrito' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
 
+    const neonStyle = {
+      boxShadow: '0 0 5px #FFFF00, 0 0 10px #FFD700, 0 0 20px rgba(255, 255, 0, 0.3)',
+      transition: 'box-shadow 0.3s ease-in-out',
+  };
+
+
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-primary backdrop-blur supports-[backdrop-filter]:bg-primary/95">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+<nav 
+        className="sticky top-0 z-50 border-b border-border bg-primary backdrop-blur supports-[backdrop-filter]:bg-primary/95 shadow-yellow-500/30"
+        style={neonStyle} // 💡 APLICAMOS EL HALO AL NARBAR COMPLETO
+    >      
+    <div className="container mx-auto px-4 ">
+        <div className="flex h-16 items-center justify-between shadow-yellow-500/30">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-accent">
+          <Link to="/home" className="flex items-center gap-2 text-2xl font-bold text-accent">
             <span>⚡</span>
             <span className="hidden sm:inline">Level-Up Gamer</span>
             <span className="sm:hidden">Level-Up</span>

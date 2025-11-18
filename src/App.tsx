@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
+import FrontPage from "./pages/FrontPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +22,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<FrontPage/>} />
+          <Route path="/home" element={<Home />} />
           <Route path="/categorias" element={<Categories />} />
           <Route path="/carrito" element={<Cart />} />
           <Route path="/admin" element={<AdminDashboard />} />
