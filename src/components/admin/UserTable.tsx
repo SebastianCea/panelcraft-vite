@@ -52,7 +52,7 @@ export const UserTable = ({ users, onEdit, onDelete, onView }: UserTableProps) =
                   {user.userType}
                 </span>
               </TableCell>
-              <TableCell className="max-w-xs truncate">{user.address}</TableCell>
+              <TableCell className="max-w-xs truncate">{user.address}, {user.comuna}, {user.region}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Button

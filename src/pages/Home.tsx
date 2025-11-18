@@ -16,12 +16,11 @@ const Home = () => {
       <header className="relative overflow-hidden bg-gradient-to-br from-primary via-secondary to-primary py-20">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjE1LDAsMC4xKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
         <div className="container relative mx-auto px-4 text-center">
-          <div className="flex justify-center mb-6">
-            <Gamepad2 className="h-16 w-16 text-accent animate-pulse" />
-          </div>
-          <h1 className="mb-4 text-4xl font-bold md:text-6xl text-accent">
-            🎮 Bienvenido a Level-Up⚡ Gamer
-          </h1>
+         
+      <h1 className="fontFamily-roboto mb-4 text-4xl font-bold md:text-6xl text-accent flex items-center justify-center gap-4">
+  <Gamepad2 className="h-16 w-16 text-accent animate-pulse" />
+  Bienvenido a Level-Up⚡Gamer
+</h1>
           <p className="mb-8 text-xl text-foreground/90 max-w-2xl mx-auto">
             Todo lo que necesitas para tu setup gamer al mejor precio
           </p>
