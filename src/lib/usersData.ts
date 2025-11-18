@@ -40,7 +40,7 @@ export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
   rut: '32132132-1', 
   name: 'Diego Maradona',
   email: 'diego@levelup.admin.cl', // Correo Administrador (Dominio Admin)
-  password: 'Cliente1234',
+  password: 'Admin1234',
   birthdate: '1960-10-30', // Fecha de nacimiento de Diego Maradona
   userType: 'Administrador', 
   region: 'Región Metropolitana',
