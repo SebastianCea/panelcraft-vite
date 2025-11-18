@@ -1,142 +1,145 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // 💡 MODIFICADO: Se añade useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { loginSchema, type LoginFormData } from '@/lib/validations/auth';
 import { useToast } from '@/hooks/use-toast';
+import { LogIn } from 'lucide-react';
+import { authenticateUser, login } from '@/lib/service/authenticateUser'; 
 
 const Login = () => {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate(); // 💡 AÑADIDO: Hook para redirección
+ const { toast } = useToast();
+ const navigate = useNavigate();
 
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
+ const form = useForm<LoginFormData>({
+  resolver: zodResolver(loginSchema),
+  defaultValues: {
+   email: '',
+   password: '',
+  },
+ });
 
-  const onSubmit = (data: LoginFormData) => {
-    console.log('Login:', { ...data, isAdmin });
+ const onSubmit = (data: LoginFormData) => {
+  try {
+    // 1. Autenticar
+    const user = authenticateUser(data); 
+    
+    // 2. 🟢 GUARDAR SESIÓN
+        login(user);
+
     toast({
-      title: 'Inicio de Sesión Exitoso', // 💡 MODIFICADO
-      description: 'Redirigiendo...',
+      title: `¡Bienvenido de nuevo, ${user.name}!`,
+      description: 'Has iniciado sesión correctamente.',
+            className: "bg-green-500 text-white border-none"
     });
     
-    // Aquí se integrará con el backend de Spring Boot
-    
-    // 💡 AÑADIDO: Lógica de redirección
+    // 3. 🚦 LÓGICA DE REDIRECCIÓN SEGÚN ROL 🚦
     setTimeout(() => {
-      if (isAdmin) {
-        navigate('/admin'); 
-      } else {
-        navigate('/'); 
-      }
-    }, 500); 
-  };
+            // Si es personal de la empresa, al panel.
+            if (user.userType === 'Administrador' || user.userType === 'Vendedor') {
+                navigate('/admin');
+            } 
+            // Si es cliente, a la tienda.
+            else {
+                navigate('/home'); 
+            }
+    }, 500);
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error al iniciar sesión";
+    
+    toast({
+      title: 'Acceso Denegado',
+      description: errorMessage,
+      variant: 'destructive'
+    });
+  }
+ };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md bg-card border-border">
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-3xl text-accent">Iniciar Sesión</CardTitle>
-          <CardDescription>
-            Ingresa tus credenciales para acceder
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
-            <Label htmlFor="admin-mode" className="text-foreground">
-              {isAdmin ? 'Modo Administrador' : 'Modo Usuario'}
-            </Label>
-            <Switch
-              id="admin-mode"
-              checked={isAdmin}
-              onCheckedChange={setIsAdmin}
-            />
-          </div>
+ return (
+  <div className="min-h-screen flex items-center justify-center bg-background p-4 py-8">
+   <Card className="w-full max-w-sm bg-card border-border shadow-lg">
+    <CardHeader className="space-y-1">
+     <CardTitle className="text-3xl font-bold text-accent text-center">Iniciar Sesión</CardTitle>
+     <CardDescription className="text-center">
+      Ingresa a tu cuenta de Level-Up Gamer
+     </CardDescription>
+    </CardHeader>
+    <CardContent>
+     <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+       
+       <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+         <FormItem>
+          <FormLabel>Correo Electrónico</FormLabel>
+          <FormControl>
+           <Input 
+            placeholder="ejemplo@correo.com" 
+            className="bg-input border-border" 
+            {...field} 
+           />
+          </FormControl>
+          <FormMessage />
+         </FormItem>
+        )}
+       />
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Usuario o Correo</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="usuario@ejemplo.com"
-                        className="bg-input border-border"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        className="bg-input border-border"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Link 
-                to="/recuperar-contrasena" 
-                className="text-sm text-accent hover:underline inline-block"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                disabled={form.formState.isSubmitting}
-              >
-                Iniciar Sesión
-              </Button>
-            </form>
-          </Form>
-
-          <div className="text-center text-sm">
-            <span className="text-muted-foreground">¿No tienes cuenta? </span>
-            <Link to="/registro" className="text-accent hover:underline font-medium">
-              Crear cuenta
-            </Link>
-          </div>
-          
-          {/* 💡 AÑADIDO: Enlace para volver a la página principal */}
-          <div className="text-center text-sm mt-4">
-            <Link to="/" className="text-muted-foreground hover:underline">
-              ← Volver a la tienda
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+       <FormField
+        control={form.control}
+        name="password"
+        render={({ field }) => (
+         <FormItem>
+          <FormLabel>Contraseña</FormLabel>
+          <FormControl>
+           <Input 
+            type="password" 
+            placeholder="••••••••" 
+            className="bg-input border-border" 
+            {...field} 
+           />
+          </FormControl>
+          <FormMessage />
+         </FormItem>
+        )}
+       />
+       
+       <Button 
+        type="submit" 
+        className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
+       >
+        <LogIn className="h-5 w-5 mr-2" />
+        Entrar
+       </Button>
+      </form>
+     </Form>
+     
+     <div className="mt-6 flex flex-col gap-2 text-center text-sm">
+      <Link to="/recuperar-contrasena" className="text-muted-foreground hover:text-primary transition-colors">
+       ¿Olvidaste tu contraseña?
+      </Link>
+            <div className="text-muted-foreground">
+                ¿No tienes cuenta?{' '}
+                <Link to="/registro" className="text-accent hover:underline font-medium">
+                  Regístrate aquí
+                </Link>
+            </div>
+            <div className="mt-2 pt-4 border-t border-border">
+          <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">
+           ← Volver
+          </Link>
+            </div>
+     </div>
+    
+    </CardContent>
+   </Card>
+  </div>
+ );
 };
 
 export default Login;

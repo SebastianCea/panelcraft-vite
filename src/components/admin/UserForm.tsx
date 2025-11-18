@@ -11,14 +11,13 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
-// 💡 IMPORTS ADICIONALES PARA VALIDACIÓN
 import { useForm, useWatch } from 'react-hook-form'; 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 
-// --- DEFINICIÓN DE DATOS CHILENOS (EJEMPLO) ---
+// --- DEFINICIÓN DE DATOS CHILENOS ---
 const REGIONES_COMUNAS = [
     { 
         region: 'Región Metropolitana', 
@@ -34,11 +33,16 @@ const REGIONES_COMUNAS = [
     },
 ];
 
-// --- CONFIGURACIÓN DE DOMINIOS PERMITIDOS ---
+// --- CONFIGURACIÓN DE DOMINIOS ---
+const DOMAIN_ADMIN = '@levelup.admin.cl';
+const DOMAIN_SELLER = '@levelup.seller.cl';
+const DOMAIN_CLIENT = '@levelup.cl'; // 🟢 NUEVO: Dominio por defecto para clientes
+
 const ALLOWED_DOMAINS = [
     'gmail\\.com', 'gmail\\.cl', 
     'outlook\\.com', 'outlook\\.cl', 
     'duocuc\\.cl', 
+    'levelup\\.cl', // 🟢 AÑADIDO
     'levelup\\.admin\\.cl', 
     'levelup\\.seller\\.cl' 
 ].join('|');
@@ -46,45 +50,38 @@ const ALLOWED_DOMAINS = [
 const EMAIL_REGEX = new RegExp(`^[\\w\\.-]+@(${ALLOWED_DOMAINS})$`, 'i'); 
 const EMAIL_DOMAIN_ERROR = `El correo debe ser de un dominio permitido.`;
 
-// --- FUNCIONES AUXILIARES ---
-
-// Función que valida la estructura final del RUT
 const validateRutFormat = (val: string) => {
     return /^[0-9K]{1,9}\-[0-9K]$/.test(val);
 };
 
-// --- 1. DEFINICIÓN DEL ESQUEMA DE VALIDACIÓN ZOD ---
+// --- 1. ESQUEMA DE VALIDACIÓN ---
 
 const userFormSchema = z.object({
-    // 🟢 CORRECCIÓN DE RUT
     rut: z.preprocess(
-        // Preprocess: Limpia puntos y convierte a mayúsculas
         (val) => (typeof val === 'string' ? val.replace(/\./g, '').toUpperCase() : val),
-        
-        // Zod String: Valida el string limpiado
         z.string()
             .min(1, 'El RUT es requerido')
-            // 1. Refine: Aseguramos el formato final (sin puntos, con guion)
             .refine(validateRutFormat, {
-                message: 'Formato inválido. Debe ser sin puntos y con guion (Ej: 12345678-K).',
+                message: 'Formato inválido (Ej: 12345678-K).',
             })
     ),
-    
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres').max(100),
     
-    // 💡 CORRECCIÓN CLAVE AQUÍ: Aplicamos .regex(EMAIL_REGEX, ...)
     email: z.string()
         .min(1, 'El email es requerido')
         .email('Formato de correo inválido')
-        .regex(EMAIL_REGEX, EMAIL_DOMAIN_ERROR), // <--- APLICADO EL FILTRO DE DOMINIO
+        .regex(EMAIL_REGEX, EMAIL_DOMAIN_ERROR), 
+
+    password: z.string()
+        .min(6, 'La contraseña debe tener al menos 6 caracteres')
+        .max(20, 'Máximo 20 caracteres'),
         
     birthdate: z.string().min(1, 'La fecha de nacimiento es requerida'),
     userType: z.enum(['Cliente', 'Vendedor', 'Administrador'], {
         required_error: "El tipo de usuario es obligatorio.",
     }),
-    address: z.string().min(10, 'La dirección es requerida y debe ser detallada').max(200),
+    address: z.string().min(5, 'La dirección es requerida').max(200),
 
-    // Nuevos campos de ubicación
     region: z.string().min(1, 'La Región es requerida'),
     comuna: z.string().min(1, 'La Comuna es requerida'),
 });
@@ -97,8 +94,6 @@ onSubmit: (data: ValidatedUserFormData) => void;
 onCancel: () => void;
 }
 
-// --- 2. CONVERSIÓN DEL COMPONENTE A RHF ---
-
 export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
 
   const form = useForm<ValidatedUserFormData>({
@@ -107,6 +102,7 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
       rut: user?.rut || '',
       name: user?.name || '',
       email: user?.email || '',
+            password: user?.password || '', 
       birthdate: user?.birthdate || '',
       userType: user?.userType || 'Cliente',
       address: user?.address || '',
@@ -116,28 +112,44 @@ export const UserForm = ({ user, onSubmit, onCancel }: UserFormProps) => {
     mode: 'onBlur', 
   });
 
-  // 🚀 Lógica de Dependencia de Campos con useWatch y useEffect:
-  
+    // Observamos cambios en Región y Tipo de Usuario
   const selectedRegion = useWatch({ control: form.control, name: 'region' });
+    const selectedUserType = useWatch({ control: form.control, name: 'userType' });
 
+    // Lógica de Comunas
   useEffect(() => {
     if (!selectedRegion) {
       form.setValue('comuna', '');
       return;
     }
     const regionData = REGIONES_COMUNAS.find(r => r.region === selectedRegion);
-    
     if (regionData && !regionData.comunas.includes(form.getValues('comuna'))) {
       form.setValue('comuna', '');
     }
   }, [selectedRegion, form.setValue, form.getValues]);
+
+    // 🚀 LÓGICA DE DOMINIO AUTOMÁTICO (ACTUALIZADA)
+    useEffect(() => {
+        const currentEmail = form.getValues('email') || '';
+        const emailUser = currentEmail.split('@')[0]; 
+
+        // Asignación automática para TODOS los tipos
+        if (selectedUserType === 'Administrador') {
+            form.setValue('email', emailUser + DOMAIN_ADMIN);
+        } else if (selectedUserType === 'Vendedor') {
+            form.setValue('email', emailUser + DOMAIN_SELLER);
+        } else if (selectedUserType === 'Cliente') {
+            // 🟢 Ahora Cliente también tiene dominio forzado por defecto
+            form.setValue('email', emailUser + DOMAIN_CLIENT);
+        }
+    }, [selectedUserType, form.setValue, form.getValues]);
+
 
   const comunasDisponibles = REGIONES_COMUNAS.find(
     r => r.region === selectedRegion
   )?.comunas || [];
 
 
-// Función de envío (solo se llama si la validación Zod es exitosa)
 const handleSubmit = (data: ValidatedUserFormData) => {
  onSubmit(data);
 };
@@ -147,98 +159,113 @@ return (
   <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
    <div className="grid gap-4 md:grid-cols-2">
    
-      {/* --- CAMPO: RUT --- */}
+            {/* RUT */}
       <FormField
         control={form.control}
         name="rut"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="rut">RUT *</FormLabel>
+            <FormLabel>RUT *</FormLabel>
             <FormControl>
-              <Input
-                id="rut"
-                placeholder="12345678-9"
-                className="bg-input border-border"
-                {...field} 
-              />
+              <Input placeholder="12345678-9" className="bg-input border-border" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
       
-      {/* --- CAMPO: Nombre Completo --- */}
+            {/* Nombre */}
       <FormField
         control={form.control}
         name="name"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="name">Nombre Completo *</FormLabel>
+            <FormLabel>Nombre Completo *</FormLabel>
             <FormControl>
-              <Input
-                id="name"
-                placeholder="Juan Pérez"
-                className="bg-input border-border"
-                {...field}
-              />
+              <Input placeholder="Juan Pérez" className="bg-input border-border" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
 
-   {/* --- CAMPO: Email --- */}
+            {/* 🟢 EMAIL INTELIGENTE (UNIFICADO) 🟢 */}
       <FormField
         control={form.control}
         name="email"
+        render={({ field }) => {
+                    // Determinamos el sufijo dinámicamente
+                    let domainSuffix = DOMAIN_CLIENT; // Por defecto
+                    if (selectedUserType === 'Administrador') domainSuffix = DOMAIN_ADMIN;
+                    if (selectedUserType === 'Vendedor') domainSuffix = DOMAIN_SELLER;
+
+                    const displayValue = field.value.includes('@') ? field.value.split('@')[0] : field.value;
+                    
+                    return (
+                        <FormItem className="space-y-2">
+                            <FormLabel>Email *</FormLabel>
+                            <div className="flex items-center">
+                                <FormControl>
+                                    <Input 
+                                        {...field}
+                                        value={displayValue} 
+                                        onChange={(e) => {
+                                            // Al escribir, añadimos el dominio activo automáticamente
+                                            field.onChange(e.target.value + domainSuffix);
+                                        }}
+                                        placeholder="nombre.usuario" 
+                                        className="bg-input border-border rounded-r-none" 
+                                    />
+                                </FormControl>
+                                {/* Etiqueta visual del dominio */}
+                                <div className="bg-secondary text-secondary-foreground px-3 py-2 rounded-r-md border border-l-0 border-border text-sm whitespace-nowrap flex items-center h-10">
+                                    {domainSuffix}
+                                </div>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                    );
+                }}
+      />
+
+            {/* Contraseña */}
+            <FormField
+        control={form.control}
+        name="password"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="email">Email *</FormLabel>
+            <FormLabel>Contraseña *</FormLabel>
             <FormControl>
-              <Input
-                id="email"
-                type="email"
-                placeholder="juan@example.com"
-                className="bg-input border-border"
-                {...field}
-              />
+              <Input type="text" placeholder="Asigna una contraseña" className="bg-input border-border" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
 
-   {/* --- CAMPO: Fecha de Nacimiento --- */}
+            {/* Fecha de Nacimiento */}
       <FormField
         control={form.control}
         name="birthdate"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="birthdate">Fecha de Nacimiento *</FormLabel>
+            <FormLabel>Fecha de Nacimiento *</FormLabel>
             <FormControl>
-              <Input
-                id="birthdate"
-                type="date"
-                className="bg-input border-border"
-                {...field}
-              />
+              <Input type="date" className="bg-input border-border" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
 
-   {/* --- CAMPO: Tipo de Usuario (Select) --- */}
+            {/* Tipo de Usuario */}
       <FormField
         control={form.control}
         name="userType"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="userType">Tipo de Usuario *</FormLabel>
-            <Select
-              onValueChange={field.onChange} 
-              defaultValue={field.value}
-            >
+            <FormLabel>Tipo de Usuario *</FormLabel>
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl>
                 <SelectTrigger className="bg-input border-border">
                   <SelectValue placeholder="Selecciona el tipo" />
@@ -255,17 +282,16 @@ return (
         )}
       />
 
-      {/* --- NUEVO CAMPO: Región --- */}
+            {/* Región */}
       <FormField
         control={form.control}
         name="region"
         render={({ field }) => (
           <FormItem className="space-y-2">
-            <FormLabel htmlFor="region">Región *</FormLabel>
+            <FormLabel>Región *</FormLabel>
             <Select
               onValueChange={(value) => {
                 field.onChange(value);
-                // Limpia la comuna al cambiar la región para evitar datos incorrectos
                 form.setValue('comuna', '');
               }} 
               value={field.value}
@@ -288,7 +314,7 @@ return (
         )}
       />
 
-      {/* --- NUEVO CAMPO: Comuna (Dependiente de Región) --- */}
+            {/* Comuna */}
       <FormField
         control={form.control}
         name="comuna"
@@ -297,8 +323,8 @@ return (
             <FormLabel htmlFor="comuna">Comuna *</FormLabel>
             <Select
               onValueChange={field.onChange} 
-              value={field.value} // Usamos value aquí para que se limpie cuando la región cambie
-              disabled={!selectedRegion || comunasDisponibles.length === 0} // Deshabilitado si no hay región
+              value={field.value} 
+              disabled={!selectedRegion || comunasDisponibles.length === 0} 
             >
               <FormControl>
                 <SelectTrigger className="bg-input border-border">
@@ -318,7 +344,7 @@ return (
         )}
       />
 
-   {/* --- CAMPO: Dirección (ahora solo contendrá calle, etc.) --- */}
+            {/* Dirección */}
       <FormField
         control={form.control}
         name="address"
@@ -337,18 +363,18 @@ return (
           </FormItem>
         )}
       />
-      
-  </div>
+            
+   </div>
 
-  <div className="flex justify-end gap-3">
-   <Button type="button" variant="outline" onClick={onCancel}>
-   Cancelar
-   </Button>
-   <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
-   {user ? 'Actualizar' : 'Crear'} Usuario
-   </Button>
-  </div>
-  </form>
-  </Form>
-);
+     <div className="flex justify-end gap-3">
+      <Button type="button" variant="outline" onClick={onCancel}>
+       Cancelar
+      </Button>
+      <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
+       {user ? 'Actualizar' : 'Crear'} Usuario
+      </Button>
+     </div>
+    </form>
+    </Form>
+ );
 };

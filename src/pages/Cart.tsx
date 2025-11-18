@@ -12,6 +12,7 @@ import { GuestCheckoutModal, GuestCheckoutFormData } from '@/components/public/G
 // 💡 IMPORTACIONES NECESARIAS:
 import { Order, OrderItem } from '@/types/order'; // El tipo Order
 import { addOrder } from '@/lib/orderStorage'; // La nueva función addOrder
+import { updateStock } from '@/lib/productStorage';
 
 
 const Cart = () => {
@@ -110,20 +111,26 @@ const Cart = () => {
         finalTotal: subtotal, 
     };
     
-    // 4. GUARDAR LA ORDEN
+    // 4. GUARDAR LA ORDEN Y ACTUALIZAR STOCK
     try {
+        // A. 🟢 RESTAR STOCK DEL INVENTARIO POR CADA ITEM 🟢
+        currentCartItems.forEach(item => {
+            updateStock(item.product.id, item.quantity);
+        });
+
+        // B. Guardar la orden
         const savedOrder = addOrder(newOrder); 
-        toast.success(`🎉 ¡Pedido N° ${savedOrder.id} generado! Estado: Pendiente de Pago.`);
+        toast.success(`🎉 ¡Pedido N° ${savedOrder.id} generado! Stock actualizado.`);
         
-        // 5. LIMPIAR CARRITO Y CERRAR MODAL
+        // C. Limpiar carrito y cerrar modal
         clearCart();
         loadCart();
         setIsGuestModalOpen(false);
     window.dispatchEvent(new Event('cartUpdated'));
 
     } catch (error) {
-        console.error("Error al guardar la orden:", error);
-        toast.error('Ocurrió un error al procesar el pedido. Intente nuevamente.');
+        console.error("Error al guardar la orden o actualizar stock:", error);
+        toast.error('Ocurrió un error al procesar el pedido.');
     }
  };
 

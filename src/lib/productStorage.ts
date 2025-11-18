@@ -1,4 +1,4 @@
-import { Product, ProductFormData } from '../types/product';
+import { Product, ProductFormData, CartItem } from '../types/product';
 
 // Clave única para guardar los productos en el localStorage
 const STORAGE_KEY = 'levelup_products';
@@ -33,6 +33,38 @@ export const getProducts = (): Product[] => {
  */
 const saveProducts = (products: Product[]): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+};
+
+/**
+ * 🟢 NUEVA FUNCIÓN CLAVE: Actualiza el stock de un producto después de una venta.
+ * @param productId ID del producto a actualizar.
+ * @param quantityToSubtract Cantidad a restar del stock.
+ */
+export const updateStock = (productId: string, quantityToSubtract: number): void => {
+    let products = getProducts();
+    const productIndex = products.findIndex(p => p.id === productId);
+
+    if (productIndex === -1) {
+        console.warn(`Producto con ID ${productId} no encontrado para actualizar stock.`);
+        return;
+    }
+
+    const currentProduct = products[productIndex];
+    const newStock = currentProduct.stock - quantityToSubtract;
+
+    if (newStock < 0) {
+        console.error(`ERROR DE STOCK: Intento de dejar el stock de ${currentProduct.name} en negativo.`);
+        // Prevenir stock negativo y dejarlo en 0.
+        currentProduct.stock = 0; 
+    } else {
+        currentProduct.stock = newStock;
+    }
+
+    // Actualiza el producto en el array
+    products[productIndex] = { ...currentProduct, updatedAt: new Date().toISOString() };
+    
+    // Guarda el array completo de vuelta
+    saveProducts(products);
 };
 
 

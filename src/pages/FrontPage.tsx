@@ -53,7 +53,7 @@ const FrontPage = () => {
         </div>
 
         {/* 2b. Botón Principal */}
-        <Link to="/categorias" className="block">
+        <Link to="/home" className="block">
           <button 
             className="w-full py-4 text-lg md:text-xl font-bold rounded-xl 
                  bg-purple-600 text-white shadow-lg 

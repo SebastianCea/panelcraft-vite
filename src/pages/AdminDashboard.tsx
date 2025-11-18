@@ -1,529 +1,419 @@
 import { useState, useEffect } from 'react';
-
-
-//******TYPES*******
-//Importamos tipos de usuario
-import { User, UserFormData } from '@/types/user'; // FIX: Usando alias @/
-// Importamos tipos de Producto
-import { Product, ProductFormData } from '@/types/product'; // FIX: Usando alias @/ 
-// Importamos tipos de Orden
+import { User } from '@/types/user';
+import { Product } from '@/types/product';
 import { Order } from '@/types/order';
 
+// Storages & Services
+import { getUsers, addUser, updateUser, deleteUser } from '@/lib/userStorage';
+import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage';
+import { getOrders, calculateGrowthRate } from '@/lib/orderStorage';
+import { initializeDemoData } from '@/lib/InitializeDemoData';
+import { getCurrentUser } from '@/lib/service/authenticateUser';
 
-//***STORAGES*****/
-// Importaciones de USUARIOS desde storage.ts
-import { getUsers, addUser, updateUser, deleteUser } from '@/lib/userStorage'; // FIX: Usando alias @/
-// Importaciones de PRODUCTOS desde productStorage.ts (NUEVO)
-import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage'; // FIX: Usando alias @
-
-import {filterOrdersByStatus, getPaymentStatusSummary, getOrders, saveOrders, searchOrders, calculateGrowthRate} from '@/lib/orderStorage'
-
-
-// Importación de datos demo. Solo inicializa.
-import { initializeDemoData } from '@/lib/InitializeDemoData'; // FIX: Usando alias @/
-
-//Componentes layout
-import { Header } from '@/components/layout/Header'; // FIX: Usando alias @/
-import { Sidebar } from '@/components/layout/Sidebar'; // FIX: Usando alias @/
-
-
-//Importamos componentes de usuario
-import { UserTable } from '@/components/admin/UserTable'; // FIX: Usando alias @/
-import { UserFormModal } from '@/components/admin/UserFormModal'; // FIX: Usando alias @/
-import { UserViewModal } from '@/components/admin/UserViewModal'; // FIX: Usando alias @/
-
-// Importamos componentes de Producto
-import { ProductTable } from '@/components/admin/ProductTable'; // FIX: Usando alias @/
-import { ProductFormModal } from '@/components/admin/ProductFormModal'; // FIX: Usando alias @/
-import { ProductViewModal } from '@/components/admin/ProductViewModal'; // FIX: Usando alias @/
-
-//Importamos componentes de Orden
-import { OrderTable } from '@/components/admin/OrderTable'; // Necesitas crear este archivo
-import { OrderDetailModal } from '@/components/admin/OrderDetailModal'; // Necesitas crear este archi
-
-
-
-//Importamos componentes generales
-import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; // FIX: Usando alias @/
-import { Button } from '@/components/ui/button'; // FIX: Usando alias @/
+// Components
+import { Header } from '@/components/layout/Header';
+import { Sidebar } from '@/components/layout/Sidebar'; 
+import { UserTable } from '@/components/admin/UserTable';
+import { UserFormModal } from '@/components/admin/UserFormModal';
+import { UserViewModal } from '@/components/admin/UserViewModal';
+import { ProductTable } from '@/components/admin/ProductTable';
+import { ProductFormModal } from '@/components/admin/ProductFormModal';
+import { ProductViewModal } from '@/components/admin/ProductViewModal';
+import { OrderTable } from '@/components/admin/OrderTable';
+import { OrderDetailModal } from '@/components/admin/OrderDetailModal';
+import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; // Corregido: asumimos que DeleteConfirmDialog usa el alias @/components/ui
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Plus, Users as UsersIcon, Package, ShoppingCart, TrendingUp, Store } from 'lucide-react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // FIX: Usando alias @/
-
-// --- Función que DEBES crear/llamar en tu lib/demoData.ts para inicializar productos ---
-// Esto es necesario para que loadProducts() no devuelva un arreglo vacío la primera vez.
-// Asumo que tienes una función initializeDemoProducts() que usa localStorage.setItem('levelup_products', JSON.stringify(data));
-// Dado que no tengo el nombre exacto de la función, la llamo aquí de forma provisional.
 
 const AdminDashboard = () => {
-  // --- ESTADO DE USUARIOS  ---
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
+  // --- ESTADO DE USUARIO ACTUAL ---
+  const [currentUser, setCurrentUser] = useState<User | null>(null); 
+  const isSeller = currentUser?.userType === 'Vendedor'; 
+  const isAdmin = currentUser?.userType === 'Administrador'; 
 
-  // --- ESTADO DE PRODUCTOS  ---
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null); 
+ // --- ESTADO DE USUARIOS ---
+ const [users, setUsers] = useState<User[]>([]);
+ const [selectedUser, setSelectedUser] = useState<User | null>(null);
+ const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // --- ESTADO DE ÓRDENES  ---
-  const [orders, setOrders] = useState<Order[]>([]); // 💡 Lista de órdenes
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null); 
+ // --- ESTADO DE PRODUCTOS ---
+ const [products, setProducts] = useState<Product[]>([]);
+ const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+ const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null); 
 
-  // 💡 ESTADOS PARA CRECIMIENTO
-const [growthPercentage, setGrowthPercentage] = useState(0); 
-const [growthPeriod, setGrowthPeriod] = useState('vs mes anterior'); // Inicializamos el texto
-//
+ // --- ESTADO DE ÓRDENES ---
+ const [orders, setOrders] = useState<Order[]>([]);
+ const [selectedOrder, setSelectedOrder] = useState<Order | null>(null); 
 
-  
-  // --- ESTADO DE UI Y MODALES ---
-  const [activeSection, setActiveSection] = useState('home');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false); // Para UserModal
-  const [productModalOpen, setProductModalOpen] = useState(false); // Para ProductModal
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  
+ // ESTADOS PARA CRECIMIENTO
+  const [growthPercentage, setGrowthPercentage] = useState(0); 
+  const [growthPeriod, setGrowthPeriod] = useState('vs mes anterior');
+ 
+ // --- ESTADO DE UI Y MODALES ---
+ const [activeSection, setActiveSection] = useState('home');
+ const [sidebarOpen, setSidebarOpen] = useState(false);
+ const [modalOpen, setModalOpen] = useState(false); 
+ const [productModalOpen, setProductModalOpen] = useState(false); 
+ const [viewModalOpen, setViewModalOpen] = useState(false); // Modal de vista general
+ const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+ 
 
-  const loadUsers = () => {
-    setUsers(getUsers());
-  };
+ const loadUsers = () => setUsers(getUsers());
+ const loadProducts = () => setProducts(getProducts());
+ const loadOrders = () => {
+  const loadedOrders = getOrders();
+  setOrders(loadedOrders); 
+  const growthData = calculateGrowthRate();
+  setGrowthPercentage(growthData.percentage);
+  setGrowthPeriod(growthData.comparisonPeriod);
+ };
 
-  const loadProducts = () => {
-    // Llama a la nueva función de almacenamiento de productos
-    setProducts(getProducts());
-  };
-
-  const loadOrders = () => {
-    const loadedOrders = getOrders();
-    setOrders(loadedOrders); 
+ // --- LÓGICA DE CARGA DE DATOS ---
+ useEffect(() => {
+  initializeDemoData(); 
+  loadUsers(); 
+  loadProducts(); 
+  loadOrders();
     
-    // 💡 CALCULAR Y GUARDAR EL CRECIMIENTO
-    const growthData = calculateGrowthRate();
-    setGrowthPercentage(growthData.percentage);
-    setGrowthPeriod(growthData.comparisonPeriod);
-  };
-
-  // --- LÓGICA DE CARGA DE DATOS ---
-  useEffect(() => {
-    // 1. Inicialización de datos DEMO (DEBES CREAR initializeDemoProducts() en lib/demoData.ts)
-    initializeDemoData(); // Inicializa Usuarios
-    loadUsers(); //Carga de usuario
-    loadProducts(); // Cargar productos al inicio
-    loadOrders(); // 💡 Llamamos a la nueva función
-  }, []);
-
-
-
-  // --- LÓGICA DE USUARIO  ---
-
-  const handleCreateUser = (data: UserFormData) => {
-    try {
-      addUser(data);
-      loadUsers();
-      setModalOpen(false);
-      toast.success('Usuario creado exitosamente');
-    } catch (error) {
-      toast.error('Error al crear usuario');
+    // Cargar usuario actual al montar
+    const loggedUser = getCurrentUser();
+    setCurrentUser(loggedUser);
+    
+    // Si entra un vendedor y está en la sección users, lo mandamos a home (seguridad extra)
+    if (loggedUser?.userType === 'Vendedor' && activeSection === 'users') {
+        setActiveSection('home');
     }
-  };
+ }, [activeSection]);
 
-  const handleUpdateUser = (data: UserFormData) => {
-    if (!selectedUser) return;
-    try {
-      updateUser(selectedUser.id, data);
-      loadUsers();
-      setModalOpen(false);
-      setSelectedUser(null);
-      toast.success('Usuario actualizado exitosamente');
-    } catch (error) {
-      toast.error('Error al actualizar usuario');
-    }
-  };
 
-  const handleDeleteUser = (id: string) => {
-    const user = users.find((u) => u.id === id);
-    if (user) {
-      setUserToDelete({ id, name: user.name });
-      setProductToDelete(null); // Limpiamos el estado de producto
-      setDeleteDialogOpen(true);
-    }
-  };
-
-  const handleEdit = (user: User) => {
-    setSelectedUser(user);
-    setModalOpen(true);
-  };
-
-  const handleView = (user: User) => {
-    setSelectedUser(user);
-    setViewModalOpen(true);
-  };
-
-  const handleNewUser = () => {
-    setSelectedUser(null);
-    setModalOpen(true);
-  };
+  // --- 🟢 LÓGICA DE USUARIOS ---
+  const handleEdit = (user: User) => { setSelectedUser(user); setModalOpen(true); };
+  const handleDeleteUser = (id: string) => { const u = users.find(x=>x.id===id); if(u) { setUserToDelete({id, name:u.name}); setDeleteDialogOpen(true); }};
+  const handleNewUser = () => { setSelectedUser(null); setModalOpen(true); };
+  const handleCreateUser = (data: any) => { addUser(data); loadUsers(); setModalOpen(false); toast.success('Usuario creado'); };
+  const handleUpdateUser = (data: any) => { if(selectedUser) { updateUser(selectedUser.id, data); loadUsers(); setModalOpen(false); } };
   
-  // --- LÓGICA DE PRODUCTO (NUEVA) ---
+  // 💡 FIX: Reactivamos la vista para el Administrador (ya que es el único que ve la tabla)
+  const handleView = (user: User) => { setSelectedUser(user); setViewModalOpen(true); }; 
 
-  const handleNewProduct = () => {
-    setSelectedProduct(null);
-    setProductModalOpen(true);
-  };
 
-  const handleEditProduct = (product: Product) => {
-    setSelectedProduct(product);
-    setProductModalOpen(true);
-  };
-  
-  const handleViewProduct = (product: Product) => {
-    setSelectedProduct(product);
-    setViewModalOpen(true);
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    const product = products.find((p) => p.id === id);
-    if (product) {
-      setProductToDelete({ id, name: product.name });
-      setUserToDelete(null); // Limpiamos el estado de usuario
-      setDeleteDialogOpen(true);
-    }
-  };
-
-  const handleSubmitProduct = (data: ProductFormData) => {
-    try {
-      if (selectedProduct) {
-        // Actualizar
-        updateProduct(selectedProduct.id, data);
-        toast.success('Producto actualizado exitosamente');
+  // --- 🟢 LÓGICA DE PRODUCTOS ---
+  const handleNewProduct = () => { 
+      if (isAdmin) {
+          setSelectedProduct(null); 
+          setProductModalOpen(true); 
       } else {
-        // Crear
-        addProduct(data);
-        toast.success('Producto creado exitosamente');
+          toast.error("Permiso denegado. Solo los administradores pueden crear productos.");
       }
-      loadProducts();
-      setProductModalOpen(false);
-      setSelectedProduct(null);
-    } catch (error) {
-      toast.error('Error al guardar producto');
-    }
+  };
+  
+  const handleEditProduct = (product: Product) => { 
+      if (isAdmin) {
+          setSelectedProduct(product); 
+          setProductModalOpen(true); 
+      } else {
+          toast.error("Permiso denegado. Solo los administradores pueden editar productos.");
+      }
+  };
+  
+  // 💡 FIX: Reactivamos la vista para TODOS los que acceden a la sección (Admin/Vendedor)
+  const handleViewProduct = (product: Product) => { setSelectedProduct(product); setViewModalOpen(true); }; 
+  
+  const handleDeleteProduct = (id: string) => { 
+      if (isAdmin) {
+          const p = products.find(x=>x.id===id); 
+          if(p) { setProductToDelete({id, name:p.name}); setDeleteDialogOpen(true); }
+      } else {
+          toast.error("Permiso denegado. Solo los administradores pueden eliminar productos.");
+      }
+  };
+  
+  const handleSubmitProduct = (data: any) => { 
+      if (isAdmin) {
+          if(selectedProduct) updateProduct(selectedProduct.id, data); 
+          else addProduct(data); 
+          loadProducts(); 
+          setProductModalOpen(false); 
+          toast.success('Producto guardado'); 
+      } else {
+          toast.error("Permiso denegado. Solo los administradores pueden crear/editar productos.");
+      }
   };
 
-  //LOGICA DE ORDENES
-  const handleViewOrderDetails = (order: Order) => {
-   setSelectedOrder(order);
-  // Reutilizamos el estado general de visualización (ViewModal)
-   setViewModalOpen(true); 
-  };
-
-
-  // --- LÓGICA DE CONFIRMACIÓN DE ELIMINACIÓN (UNIVERSAL) ---
+  // --- Lógica de Órdenes y Delete Confirm ---
+  const handleViewOrderDetails = (order: Order) => { setSelectedOrder(order); setViewModalOpen(true); };
   const confirmDelete = () => {
-    if (userToDelete) {
-      // Eliminar Usuario
-      try {
-        deleteUser(userToDelete.id);
-        loadUsers();
-        toast.success('Usuario eliminado exitosamente');
-      } catch (error) {
-        toast.error('Error al eliminar usuario');
-      }
-    } else if (productToDelete) {
-      // Eliminar Producto
-      try {
-        deleteProduct(productToDelete.id);
-        loadProducts();
-        toast.success('Producto eliminado exitosamente');
-      } catch (error) {
-        toast.error('Error al eliminar producto');
-      }
-    }
-    setDeleteDialogOpen(false);
-    setUserToDelete(null);
-    setProductToDelete(null);
+      if (userToDelete) { deleteUser(userToDelete.id); loadUsers(); toast.success('Usuario eliminado'); }
+      else if (productToDelete) { deleteProduct(productToDelete.id); loadProducts(); toast.success('Producto eliminado'); }
+      setDeleteDialogOpen(false); setUserToDelete(null); setProductToDelete(null);
   };
 
-  // --- RENDERIZADO DE SECCIONES ---
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'home':
+
+ // --- RENDERIZADO DE SECCIONES ---
+ const renderContent = () => {
+  switch (activeSection) {
+   case 'home':
+        // ... (Contenido Home sin cambios)
         return (
-          <div className="space-y-8">
-            <div>
-              <h1 className="mb-2 text-4xl font-bold text-accent">
-                Bienvenido Administrador
-              </h1>
-              <p className="text-xl text-muted-foreground">Panel de control Level-Up</p>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
-                  <UsersIcon className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-accent">{users.length}</div>
-                  <p className="text-xs text-muted-foreground">Usuarios registrados</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Productos</CardTitle>
-                  <Package className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                  {/* Muestra el conteo real de productos */}
-                  <div className="text-2xl font-bold text-accent">{products.length}</div> 
-                  <p className="text-xs text-muted-foreground">Productos en inventario</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Órdenes</CardTitle>
-                  <ShoppingCart className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-accent">{orders.length}</div>
-                  <p className="text-xs text-muted-foreground">Próximamente</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-accent" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-accent">
-                      {/* 💡 Muestra el porcentaje real */}
-                      {`${growthPercentage > 0 ? '+' : ''}${
-                          (growthPercentage * 100).toFixed(1)
-                      }%`}
-                    </div>
-                    {/* 💡 Muestra el período de comparación real */}
-                    <p className="text-xs text-muted-foreground">{growthPeriod}</p>
-                </CardContent>
-            </Card>
-            </div>
-
-            <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-accent">Acceso Rápido</CardTitle>
-                <CardDescription>Accede a las funciones principales</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-4">
-                <Button
-                  onClick={() => setActiveSection('users')}
-                  className="bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  <UsersIcon className="mr-2 h-4 w-4" />
-                  Gestionar Usuarios
-                </Button>
-                {/* Botón de Productos Activado */}
-                <Button 
-                  onClick={() => setActiveSection('products')}
-                  className="bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  <Package className="mr-2 h-4 w-4" />
-                  Gestionar Productos
-                </Button>
-                <Button 
-                onClick={() => setActiveSection('orders')}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Ver Órdenes
-                </Button>
-                {/* 4. 🚀 IR A TIENDA (NUEVO BOTÓN) */}
-        <Button 
-         // 💡 Esta es la lógica de redirección
-         onClick={() => window.location.href = '/'} 
-         variant="outline" // Estilo para diferenciarlo
-        >
-         <Store className="mr-2 h-4 w-4" />
-         Ir A Tienda
-        </Button>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 'users':
-        return (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Usuarios</h1>
-                <p className="text-lg text-muted-foreground">
-                  Administra y visualiza todos los usuarios
-                </p>
+     <div className="space-y-8">
+            {/* Header de Bienvenida Personalizado */}
+      <div>
+       <h1 className="mb-2 text-4xl font-bold text-accent">
+        Bienvenido {currentUser?.name || 'Administrador'}
+       </h1>
+              <div className="flex items-center gap-2 text-xl text-muted-foreground">
+                <span>Panel de control Level-Up</span>
+                <span className="px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-800 text-sm border border-yellow-400">
+                    {currentUser?.userType}
+                </span>
               </div>
-              <Button
-                onClick={handleNewUser}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Usuario
-              </Button>
-            </div>
-
-            <UserTable
-              users={users}
-              onEdit={handleEdit}
-              onDelete={handleDeleteUser}
-              onView={handleView}
-            />
-          </div>
-        );
-
-      case 'products':
-        return (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Productos</h1>
-                <p className="text-lg text-muted-foreground">
-                  Administra y visualiza todos los productos
-                </p>
-              </div>
-              <Button
-                onClick={handleNewProduct}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Producto
-              </Button>
-            </div>
-            {/* RENDERIZAR TABLA DE PRODUCTOS */}
-            <ProductTable
-              products={products}
-              onEdit={handleEditProduct}
-              onDelete={handleDeleteProduct}
-              onView={handleViewProduct}
-            />
-          </div>
-        );
-
-      case 'orders':
-        return (
-     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-       <div>
-        <h1 className="mb-2 text-4xl font-bold text-yellow-400">Gestión de Órdenes</h1>
-        <p className="text-lg text-muted-foreground">Administra y visualiza todas las órdenes.</p>
-       </div>
       </div>
-      
-      {/* 💡 RENDERIZAR TABLA DE ÓRDENES */}
-      <OrderTable 
-       orders={orders} 
-       onViewDetails={handleViewOrderDetails} // La función que definimos
-      />
+
+            {/* CARD REPORTS (TODOS VEN) */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {/* Total Usuarios (Solo Admin) */}
+              {!isSeller && (
+       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+         <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
+         <UsersIcon className="h-4 w-4 text-accent" />
+        </CardHeader>
+        <CardContent>
+         <div className="text-2xl font-bold text-accent">{users.length}</div>
+         <p className="text-xs text-muted-foreground">Usuarios registrados</p>
+        </CardContent>
+       </Card>
+              )}
+
+              {/* Productos (Todos) */}
+       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+         <CardTitle className="text-sm font-medium">Productos</CardTitle>
+         <Package className="h-4 w-4 text-accent" />
+        </CardHeader>
+        <CardContent>
+         <div className="text-2xl font-bold text-accent">{products.length}</div> 
+         <p className="text-xs text-muted-foreground">Productos en inventario</p>
+        </CardContent>
+       </Card>
+
+              {/* Reporte / Crecimiento (TODOS VEN) */}
+       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
+          <TrendingUp className="h-4 w-4 text-accent" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-accent">
+            {`${growthPercentage > 0 ? '+' : ''}${
+             (growthPercentage * 100).toFixed(1)
+           }%`}
+          </div>
+          <p className="text-xs text-muted-foreground">{growthPeriod}</p>
+        </CardContent>
+       </Card>
+
+              {/* Órdenes (Todos) */}
+       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+         <CardTitle className="text-sm font-medium">Órdenes</CardTitle>
+         <ShoppingCart className="h-4 w-4 text-accent" />
+        </CardHeader>
+        <CardContent>
+         <div className="text-2xl font-bold text-accent">{orders.length}</div>
+         <p className="text-xs text-muted-foreground">Total de transacciones</p>
+        </CardContent>
+       </Card>
+
+      </div>
+
+            {/* Acceso Rápido con Condicionales */}
+      <Card className="border-border bg-card">
+       <CardHeader>
+        <CardTitle className="text-accent">Acceso Rápido</CardTitle>
+                <CardDescription>Accede a las funciones principales</CardDescription>
+       </CardHeader>
+       <CardContent className="flex flex-wrap gap-4">
+                {/* 💡 SOLO ADMIN: Gestionar Usuarios */}
+                {!isSeller && (
+        <Button
+         onClick={() => setActiveSection('users')}
+         className="bg-accent text-accent-foreground hover:bg-accent/90"
+        >
+         <UsersIcon className="mr-2 h-4 w-4" />
+         Gestionar Usuarios
+        </Button>
+                )}
+                {/* 💡 TODOS: Gestionar Productos */}
+        <Button 
+         onClick={() => setActiveSection('products')}
+         className="bg-accent text-accent-foreground hover:bg-accent/90"
+        >
+         <Package className="mr-2 h-4 w-4" />
+         Gestionar Productos
+        </Button>
+
+                {/* TODOS: Ver Órdenes (Acceso Directo) */}
+                <Button 
+                    onClick={() => setActiveSection('orders')}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Ver Órdenes
+                </Button>
+
+                {/* Ir A Tienda */}
+                <Button 
+                    onClick={() => window.location.href = '/home'} 
+                    variant="outline" 
+                >
+                    <Store className="mr-2 h-4 w-4" />
+                    Ir A Tienda
+                </Button>
+
+       </CardContent>
+      </Card>
      </div>
     );
 
-      default:
-        return null;
-    }
-  };
+   case 'users':
+        // Doble protección: Si es vendedor, no muestra nada aquí
+        if (isSeller) return null;
+    return (
+     <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+       <div>
+        <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Usuarios</h1>
+        <p className="text-lg text-muted-foreground">Administra y visualiza todos los usuarios</p>
+       </div>
+       <Button
+        onClick={handleNewUser}
+        className="bg-accent text-accent-foreground hover:bg-accent/90"
+       >
+        <Plus className="mr-2 h-4 w-4" />
+        Nuevo Usuario
+       </Button>
+       </div>
+            {/* 💡 La tabla de usuarios no acepta 'isAdmin' — el control de permisos lo maneja internamente o vía currentUser */}
+      <UserTable users={users} onEdit={handleEdit} onDelete={handleDeleteUser} onView={handleView} />
+     </div>
+    );
 
-  const itemToDeleteName = userToDelete?.name || productToDelete?.name || '';
+   case 'products':
+    return (
+     <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+       <div>
+        <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Productos</h1>
+        <p className="text-lg text-muted-foreground">Administra y visualiza todos los productos</p>
+       </div>
+              
+              {/* Botón 'Nuevo Producto' oculto para Vendedores */}
+              {!isSeller && (
+       <Button
+        onClick={handleNewProduct}
+        className="bg-accent text-accent-foreground hover:bg-accent/90"
+       >
+        <Plus className="mr-2 h-4 w-4" />
+        Nuevo Producto
+       </Button>
+              )}
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+       </div>
+            {/* 💡 Pasamos el rol para controlar editar/eliminar y View (Detalle) */}
+      <ProductTable products={products} onEdit={handleEditProduct} onDelete={handleDeleteProduct} onView={handleViewProduct} isAdmin={isAdmin} />
+     </div>
+    );
 
-      <div className="lg:pl-64">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-6">{renderContent()}</main>
-      </div>
+      case 'orders':
+        return (
+            <div className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+             <div>
+              <h1 className="mb-2 text-4xl font-bold text-yellow-400">Gestión de Órdenes</h1>
+              <p className="text-lg text-muted-foreground">Administra y visualiza todas las órdenes.</p>
+             </div>
+            </div>
+            <OrderTable orders={orders} onViewDetails={handleViewOrderDetails} />
+           </div>
+        );
 
-      {/* MODAL DE USUARIO (CREAR/EDITAR) */}
-      <UserFormModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setSelectedUser(null);
-        }}
-        user={selectedUser}
-        onSubmit={selectedUser ? handleUpdateUser : handleCreateUser}
+   default:
+    return null;
+  }
+ };
+
+ return (
+  <div className="min-h-screen bg-background">
+      {/* 💡 Pasamos el usuario actual al Sidebar para que oculte opciones */}
+   <Sidebar
+    activeSection={activeSection}
+    onSectionChange={setActiveSection}
+    isOpen={sidebarOpen}
+    onClose={() => setSidebarOpen(false)}
+        currentUser={currentUser} 
+   />
+
+   <div className="lg:pl-64">
+    <Header onMenuClick={() => setSidebarOpen(true)} />
+    <main className="p-6">{renderContent()}</main>
+   </div>
+
+      {/* Modales de Edición/Creación (Solo visibles para Administrador) */}
+   {isAdmin && (
+          <>
+          {/* Modal de Usuario */}
+          <UserFormModal
+            isOpen={modalOpen}
+            onClose={() => { setModalOpen(false); setSelectedUser(null); }}
+            user={selectedUser}
+            onSubmit={selectedUser ? handleUpdateUser : handleCreateUser}
+          />
+          {/* Modal de Producto */}
+          {activeSection === 'products' && (
+            <ProductFormModal
+              isOpen={productModalOpen}
+              onClose={() => { setProductModalOpen(false); setSelectedProduct(null); }}
+              product={selectedProduct}
+              onSubmit={handleSubmitProduct}
+            />
+          )}
+          {/* 💡 FIX: Modal de Vista de Usuario - Reactivamos el modal de vista para Admin */}
+          <UserViewModal
+            isOpen={viewModalOpen && activeSection === 'users' && !!selectedUser} // Aseguramos que solo se muestre en sección 'users' y con un usuario seleccionado
+            onClose={() => { setViewModalOpen(false); setSelectedUser(null); }}
+            user={selectedUser}
+          />
+          </>
+      )}
+
+      {/* 💡 FIX: Modal de Detalle de Producto (Visible para TODOS los que tienen acceso a la sección products) */}
+      {activeSection === 'products' && (
+          <ProductViewModal
+            isOpen={viewModalOpen && !!selectedProduct}
+            onClose={() => { setViewModalOpen(false); setSelectedProduct(null); }}
+            product={selectedProduct}
+          />
+      )}
+
+      {/* Modal de Detalle de Orden (Visible para todos los que accedan a la sección Orders) */}
+      <OrderDetailModal
+        isOpen={viewModalOpen && activeSection === 'orders'}
+        onClose={() => { setViewModalOpen(false); setSelectedOrder(null); }}
+        order={selectedOrder}
       />
       
-      {/* MODAL DE PRODUCTO (CREAR/EDITAR) */}
-      {/* FIX: Renderizado condicional si la sección es 'products' */}
-      {activeSection === 'products' && (
-        <ProductFormModal
-          isOpen={productModalOpen}
-          onClose={() => {
-            setProductModalOpen(false);
-            setSelectedProduct(null);
-          }}
-          product={selectedProduct}
-          onSubmit={handleSubmitProduct}
-        />
-      )}
-
-
-      {/* MODAL DE VISTA DE USUARIO */}
-      {activeSection === 'users' && (
-        <UserViewModal
-          isOpen={viewModalOpen}
-          onClose={() => {
-            setViewModalOpen(false);
-            setSelectedUser(null);
-          }}
-          user={selectedUser}
-        />
-      )}
-
-      {/* MODAL DE VISTA DE PRODUCTO */}
-      {activeSection === 'products' && (
-        <ProductViewModal
-          isOpen={viewModalOpen}
-          onClose={() => {
-            setViewModalOpen(false);
-            setSelectedProduct(null);
-          }}
-          product={selectedProduct}
-        />
-      )}
-      {/* MODAL DE VISTA DE ORDENES */}
-      {activeSection === 'orders' && ( // 💡 RENDERIZAR SÓLO EN LA SECCIÓN DE ÓRDENES
-        <OrderDetailModal
-          isOpen={viewModalOpen} // Reutiliza el estado general de visualización
-          onClose={() => {
-            // Limpia los estados después de cerrar
-            setViewModalOpen(false);
-            setSelectedOrder(null); 
-          }}
-          // Le pasamos la orden que fue seleccionada al hacer clic en la tabla
-          order={selectedOrder}
-        />
-      )}
-
-      {/* DIÁLOGO DE CONFIRMACIÓN DE ELIMINACIÓN (UNIVERSAL) */}
-      <DeleteConfirmDialog
-        isOpen={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setUserToDelete(null);
-          setProductToDelete(null);
-        }}
-        onConfirm={confirmDelete}
-        // FIX: Cambiamos userName por itemName para coincidir con la interfaz del diálogo
-        itemName={userToDelete?.name || productToDelete?.name || ''} 
-      />
-    </div>
-  );
+      {/* Diálogo de Confirmación (Solo Administrador lanza las acciones que lo necesitan) */}
+   <DeleteConfirmDialog
+    isOpen={deleteDialogOpen}
+    onClose={() => { setDeleteDialogOpen(false); setUserToDelete(null); setProductToDelete(null); }}
+    onConfirm={confirmDelete}
+    itemName={userToDelete?.name || productToDelete?.name || ''} 
+   />
+  </div>
+ );
 };
 
 export default AdminDashboard;

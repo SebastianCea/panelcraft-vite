@@ -18,7 +18,7 @@ interface UserModalProps {
 export const UserFormModal = ({ isOpen, onClose, user, onSubmit }: UserModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-card border-border flex flex-col max-h-[95vh] p-0">
+      <DialogContent className="w-full max-w-md md:max-w-2xl bg-card border-border flex flex-col max-h-[95vh] p-0">
         <DialogHeader className = "p-6 pb-4">
           <DialogTitle className="text-2xl text-accent">
             {user ? 'Editar Usuario' : 'Nuevo Usuario'}
@@ -29,7 +29,7 @@ export const UserFormModal = ({ isOpen, onClose, user, onSubmit }: UserModalProp
               : 'Completa el formulario para crear un nuevo usuario'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto px-6 mb-3">
+        <div className="flex-grow overflow-y-auto px-6">
         <UserForm user={user} onSubmit={onSubmit} onCancel={onClose} />
         </div>
       </DialogContent>

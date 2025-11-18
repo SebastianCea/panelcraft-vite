@@ -8,6 +8,9 @@ export interface Product {
   stock: number;
   minStock: number;
 
+      // 💡 CAMPOS AÑADIDOS
+    createdAt: string; // Timestamp de creación
+    updatedAt: string; // 🟢 TIMESTAMP DE ACTUALIZACIÓN (Elimina el error)
 }
 
 
@@ -15,6 +18,8 @@ export interface Product {
 export interface CartItem {
   product: Product;
   quantity: number;
+
+  
 }
 
 

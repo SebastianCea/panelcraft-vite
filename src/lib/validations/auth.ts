@@ -6,7 +6,7 @@ import { z } from 'zod';
 const CLIENT_DOMAINS = [
     'gmail\\.com', 'gmail\\.cl', 
     'outlook\\.com', 'outlook\\.cl', 
-    'duocuc\\.cl'
+    , 'levelup\\.cl','duocuc\\.cl'
 ].join('|');
 
 // Dominios que usa el personal de la empresa (Admin/Seller).

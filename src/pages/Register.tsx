@@ -84,6 +84,7 @@ const Register = () => {
   const newUser: UserFormData = {
     rut: rutCleaned,
     email: data.email,
+    password: data.password,
     birthdate: birthdateFormatted,
     
     // Concatenamos Nombre y Apellido

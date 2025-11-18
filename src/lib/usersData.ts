@@ -8,6 +8,7 @@ export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
   name: 'Pablo Neruda',
   email: 'pablo@gmail.com', // Correo Cliente (Gmail)
   birthdate: '1904-07-12',
+  password: 'Cliente1234',
   userType: 'Cliente',
   region: 'Región del Biobío',
   comuna: 'Concepción',
@@ -18,6 +19,7 @@ export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
   name: 'Víctor Jara',
   email: 'victor@duocuc.cl', // Correo cliente 
   birthdate: '1932-09-28',
+  password: 'Cliente1234',
   userType: 'Cliente',
   region: 'Región Metropolitana',
   comuna: 'Santiago',
@@ -27,6 +29,7 @@ export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
   rut: '98765432-1',
   name: 'Gabriela Mistral',
   email: 'gabriela@levelup.seller.cl', //Dominio Seller
+  password: 'Seller1234',
   birthdate: '1889-04-07',
   userType: 'Vendedor',
   region: 'Región de Valparaíso',
@@ -37,6 +40,7 @@ export const demoUsers: Omit<User, 'id' | 'createdAt' | 'updatedAt'>[] = [
   rut: '32132132-1', 
   name: 'Diego Maradona',
   email: 'diego@levelup.admin.cl', // Correo Administrador (Dominio Admin)
+  password: 'Cliente1234',
   birthdate: '1960-10-30', // Fecha de nacimiento de Diego Maradona
   userType: 'Administrador', 
   region: 'Región Metropolitana',

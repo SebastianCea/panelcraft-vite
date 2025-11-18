@@ -1,125 +1,109 @@
 import React from 'react';
-import { Product } from '@/types/product';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Asume que usas un path alias
+import { Product } from '@/types/product'; 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; 
 import { Button } from '@/components/ui/button';
-import { Eye, Edit, Trash2 } from 'lucide-react'; // Iconos 
+import { Edit, Trash2, Eye, AlertTriangle } from 'lucide-react'; 
 
-
-// 2. Define la interfaz de Props para la tabla de productos
 export interface ProductTableProps {
-  products: Product[]; // Cambiamos 'users' por 'products'
-  onEdit: (product: Product) => void;
-  onDelete: (productId: string) => void; // Acepta el ID del producto
-  onView: (product: Product) => void;
+ products: Product[];
+ onEdit: (product: Product) => void;
+ onDelete: (id: string) => void;
+ onView: (product: Product) => void;
+  isAdmin: boolean; // 💡 Propiedad para determinar si es Administrador (lo recibimos del Dashboard)
 }
 
-
-
-export const ProductTable = ({ products, onEdit, onDelete, onView }: ProductTableProps) => {
-  if (products.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-12 text-center">
-        <p className="text-muted-foreground">No hay productos registrados</p>
-      </div>
-
-    );
-  }
+export const ProductTable = ({ products, onEdit, onDelete, onView, isAdmin }: ProductTableProps) => {
+ if (products.length === 0) {
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-secondary hover:bg-secondary">
-            {/* 3. Ajustamos los encabezados a los campos de Producto */}
-            <TableHead className="text-secondary-foreground font-bold">Código</TableHead>
-            <TableHead className="text-secondary-foreground font-bold">Nombre</TableHead>
-            <TableHead className="text-secondary-foreground font-bold">Categoría</TableHead>
-            <TableHead className="text-secondary-foreground font-bold">Precio</TableHead>
-            <TableHead className="text-secondary-foreground font-bold">Stock</TableHead>
-            <TableHead className="text-secondary-foreground font-bold text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.map((product) => {
-            // 1. Cálculo de Stock Bajo (Debe ser la primera línea dentro del map)
-            const isLowStock = product.stock <= (product.minStock || 5); 
+   <div className="rounded-lg border border-border bg-card p-12 text-center">
+    <p className="text-muted-foreground">No hay productos registrados.</p>
+   </div>
+  );
+ }
+
+ const formatCLP = (amount: number) => 
+  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
+
+  // LÓGICA DE ALERTA DE STOCK MÍNIMO
+  const getStockClassName = (stock: number, minStock: number) => {
+    if (stock <= 0) {
+      // Stock agotado (rojo intenso)
+      return 'text-red-500 font-bold bg-red-500/10'; 
+    }
+    if (stock <= minStock) {
+      // Stock bajo alerta (amarillo)
+      return 'text-yellow-500 font-bold bg-yellow-500/10';
+    }
+    // Stock normal
+    return 'text-green-500/80'; 
+  };
+
+
+ return (
+  <div className="rounded-lg border border-border bg-card overflow-hidden">
+   <Table>
+    <TableHeader className="bg-secondary">
+     <TableRow className="hover:bg-secondary">
+      <TableHead className="font-bold">Id</TableHead>
+      <TableHead className="font-bold">Nombre</TableHead>
+      <TableHead className="font-bold">Categoría</TableHead>
+      <TableHead className="font-bold text-right">Precio</TableHead>
+      <TableHead className="font-bold text-center">Stock</TableHead> 
+      <TableHead className="font-bold text-center">Mín. Alerta</TableHead>
+      <TableHead className="font-bold text-right">Acciones</TableHead>
+     </TableRow>
+    </TableHeader>
+    <TableBody>
+     {products.map((product) => {
+            const stockClass = getStockClassName(product.stock, product.minStock);
+            const isAlert = product.stock <= product.minStock;
 
             return (
-              <TableRow 
-                key={product.id} 
-                className={"hover:bg-muted/50"} 
-              >
-                {/* Id */}
-                <TableCell className="font-medium">{product.id}</TableCell>
+      <TableRow key={product.id} className="hover:bg-muted/50">
+       <TableCell className="font-medium text-xs text-muted-foreground">{product.id}</TableCell>
+       <TableCell className="font-semibold">{product.name}</TableCell>
+       <TableCell>{product.category}</TableCell>
+       <TableCell className="text-right font-medium">{formatCLP(product.price)}</TableCell>
+              
+              {/* CELDA DE STOCK CON ALERTA */}
+       <TableCell className={`text-center font-bold px-2 py-1 ${stockClass}`}>
+                <span className="flex items-center justify-center gap-1">
+                  {isAlert && <AlertTriangle className="h-3 w-3" />}
+                  {product.stock}
+                </span>
+       </TableCell>
+              
+              {/* Celda de Stock Mínimo */}
+       <TableCell className="text-center text-sm text-muted-foreground">
+                {product.minStock}
+              </TableCell>
 
-                {/* Nombre */}
-                <TableCell className="font-medium">{product.name}</TableCell>
+       {/* Acciones */}
+       <TableCell className="text-right space-x-1">
+                {/* 💡 TODOS pueden ver el detalle */}
+                <Button variant="ghost" size="icon" onClick={() => onView(product)} className="h-8 w-8 text-blue-400 hover:bg-blue-400/20" title="Ver Detalle">
+                    <Eye className="h-4 w-4" />
+                </Button>
                 
-                {/* Categoría */}
-                <TableCell>
-                  <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
-                    {product.category.toUpperCase().replace('-', ' ')}
-                  </span>
-                </TableCell>
-                
-                {/* Precio (Formato CLP) */}
-                <TableCell>
-                  {`$${product.price.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`}
-                </TableCell>
-                
-                {/* 💡 2. CELDA DE STOCK MODIFICADA (Con Alerta Visual) */}
-                <TableCell 
-                  className={`relative font-semibold text-center ${
-                    isLowStock 
-                      ? "bg-yellow-300/80 text-red-800"
-                      : ""
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <span className="text-lg">{product.stock}</span>
-                    {isLowStock && (
-                      <span className="text-xs font-bold whitespace-nowrap pt-0.5">
-                        ⚠️ BAJO STOCK
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                
-                {/* 💡 3. CELDA DE ACCIONES (LA CUAL SE HABÍA PERDIDO - AÑADIDA DE NUEVO) */}
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onView(product)}
-                      className="h-8 w-8 text-accent hover:text-accent hover:bg-accent/10"
-                    >
-                      <Eye className="h-4 w-4" />
+                {/* 💡 SOLO ADMIN puede editar */}
+                {isAdmin && (
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(product)} className="h-8 w-8 text-yellow-500 hover:bg-yellow-500/20" title="Editar">
+                        <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEdit(product)}
-                      className="h-8 w-8 text-accent hover:text-accent hover:bg-accent/10"
-                    >
-                      <Edit className="h-4 w-4" />
+                )}
+                
+                {/* 💡 SOLO ADMIN puede eliminar */}
+                {isAdmin && (
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(product.id)} className="h-8 w-8 text-red-500 hover:bg-red-500/20" title="Eliminar">
+                        <Trash2 className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(product.id)}
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                )}
+       </TableCell>
+      </TableRow>
             );
           })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-  
-
-}
+    </TableBody>
+   </Table>
+  </div>
+ );
+};

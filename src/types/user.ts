@@ -3,6 +3,7 @@ export interface User {
  rut: string;
  name: string;
  email: string;
+ password: string;
  birthdate: string;
  userType: 'Cliente' | 'Vendedor' | 'Administrador';
  
