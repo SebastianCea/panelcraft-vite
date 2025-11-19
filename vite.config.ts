@@ -15,4 +15,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  test:{
+    global:true, 
+    environment: 'jsdom', //pruebo el dominio
+
+  }
 }));
