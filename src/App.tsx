@@ -12,6 +12,8 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import FrontPage from "./pages/FrontPage.tsx";
+import ProductDetail from "./pages/ProductDetail";
+import Profile from "./pages/Profile"; // 🟢 Importar Profile
 
 const queryClient = new QueryClient();
 
@@ -30,7 +32,11 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
           <Route path="/recuperar-contrasena" element={<ForgotPassword />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/producto/:id" element={<ProductDetail />} />
+          
+          {/* 🟢 RUTA DE PERFIL */}
+          <Route path="/perfil" element={<Profile />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

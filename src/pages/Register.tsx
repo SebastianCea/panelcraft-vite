@@ -79,6 +79,10 @@ const Register = () => {
 
   // 2. Mapear y Limpiar el RUT (Sin puntos, con guion, mayúsculas)
   const rutCleaned = data.rut.replace(/\./g, '').toUpperCase();
+
+  // 🟢 LÓGICA NUEVA: Verificar dominio Duoc UC
+  const isDuocStudent = data.email.toLowerCase().endsWith('@duocuc.cl');
+  const assignedDiscount = isDuocStudent ? 20 : 0; // 20% si es Duoc, 0 si no
   
   // 3. Crear el objeto final UserFormData (Estructura de la tabla User)
   const newUser: UserFormData = {
@@ -98,22 +102,30 @@ const Register = () => {
     
     // CAMPO FIJO: Se registra automáticamente como Cliente
     userType: 'Cliente', 
+    // 🟢 Guardamos el descuento
+    discountPercentage: assignedDiscount,
   };
 
   // 4. Guardar el nuevo usuario y gestionar el flujo de éxito/error
   try {
     addUser(newUser); // Llama a la función de userStorage
     
-        // --- 🟢 FLUJO DE ÉXITO Y REDIRECCIÓN 🟢 ---
-    toast({
-      title: 'Registro Exitoso', 
-      description: `Bienvenido(a) ${data.firstName}. Serás redirigido a la tienda.`, 
-    });
-
+    if (isDuocStudent) {
+        toast({
+            title: '¡Registro Exitoso con Beneficio!', 
+            description: `Bienvenido. Por usar tu correo DuocUC tienes un 20% de descuento permanente.`, 
+            className: "bg-green-600 text-white border-none"
+        });
+    } else {
+        toast({
+            title: 'Registro Exitoso', 
+            description: `Bienvenido(a) ${data.firstName}. Serás redirigido a la tienda.`, 
+        });
+    }
     // 5. Redirigir (Se ejecuta solo si addUser fue exitoso)
     setTimeout(() => {
       navigate('/'); 
-    }, 500);
+    }, 1500);
 
   } catch (error) {
     // --- 🔴 FLUJO DE ERROR ---

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-// 💡 CORREGIDO: LogOut, LogIn, User ahora están bien nombrados si son íconos de lucide-react
-import { Menu, X, ShoppingCart, User, LogIn, LogOut } from 'lucide-react'; 
+import { Menu, X, ShoppingCart, User, LogIn, LogOut, UserCircle } from 'lucide-react'; // 🟢 UserCircle añadido
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCartCount } from '@/lib/cartStorage';
@@ -11,7 +10,6 @@ import { cn } from '@/lib/utils';
 export const PublicHeader = () => {
  const [isOpen, setIsOpen] = useState(false);
  const [cartCount, setCartCount] = useState(0);
-  // 🟢 Estado para el usuario y permisos
   const [user, setUser] = useState(getCurrentUser());
   const [canAccessAdmin, setCanAccessAdmin] = useState(hasAdminAccess());
   
@@ -25,8 +23,6 @@ export const PublicHeader = () => {
 
  useEffect(() => {
   updateCartCount();
-    
-    // 🟢 Listener para actualizar la UI cuando se inicia/cierra sesión
     const handleAuthChange = () => {
         setUser(getCurrentUser());
         setCanAccessAdmin(hasAdminAccess());
@@ -34,7 +30,7 @@ export const PublicHeader = () => {
 
   window.addEventListener('storage', updateCartCount);
   window.addEventListener('cartUpdated', updateCartCount);
-    window.addEventListener('authChange', handleAuthChange); // Escuchar login/logout
+    window.addEventListener('authChange', handleAuthChange);
 
   return () => {
    window.removeEventListener('storage', updateCartCount);
@@ -47,7 +43,6 @@ export const PublicHeader = () => {
   setCartCount(getCartCount());
  };
   
-  // 💡 FUNCIÓN CORREGIDA
   const handleLogout = () => {
       logout();
       navigate('/login');
@@ -73,7 +68,6 @@ export const PublicHeader = () => {
 
      {/* Desktop Navigation */}
      <div className="hidden md:flex items-center gap-6">
-            {/* ... nav items mapping ... */}
       {navItems.map((item) => (
        <Link
         key={item.path}
@@ -95,21 +89,27 @@ export const PublicHeader = () => {
        </Button>
       </Link>
 
-            {/* 🟢 LÓGICA DE BOTONES DE USUARIO 🟢 */}
+            {/* 🟢 BOTONES DE USUARIO ACTUALIZADOS */}
             {user ? (
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground hidden lg:inline">Hola, {user.name.split(' ')[0]}</span>
                     
-                    {/* 💡 SOLO MOSTRAR EL BOTÓN ADMIN SI TIENE PERMISOS */}
+                    {/* 🟢 Botón Perfil */}
+                    <Link to="/perfil" title="Mi Perfil">
+                        <Button variant="ghost" size="icon" className="text-accent hover:text-accent hover:bg-accent/10">
+                            <UserCircle className="h-5 w-5" />
+                        </Button>
+                    </Link>
+
+                    {/* Botón Admin (Solo si corresponde) */}
                     {canAccessAdmin && (
                         <Link to="/admin" title="Panel de Administración">
-                            <Button variant="ghost" size="icon" className="text-accent hover:text-accent hover:bg-accent/10">
+                            <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-400/10">
                                 <User className="h-5 w-5" />
                             </Button>
                         </Link>
                     )}
                     
-                    {/* 💡 CORREGIDO: Nombre de función y componente */}
                     <Button variant="ghost" size="icon" onClick={handleLogout} title="Cerrar Sesión">
                         <LogOut className="h-5 w-5 text-destructive" />
                     </Button>
@@ -132,7 +132,7 @@ export const PublicHeader = () => {
           </div>
     </div>
         
-        {/* Mobile Nav Content - Puedes aplicar la misma lógica condicional aquí */}
+        {/* Mobile Nav Content */}
         {isOpen && (
             <div className="md:hidden border-t border-border py-4 space-y-3">
                 {navItems.map((item) => (
@@ -151,11 +151,15 @@ export const PublicHeader = () => {
                     </Link>
                 ))}
                 
-                {/* Lógica Mobile: Mostrar botones basados en el estado de autenticación */}
                 {user ? (
                     <>
+                        {/* 🟢 Enlace Perfil Mobile */}
+                        <Link to="/perfil" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2 text-lg font-medium text-accent hover:bg-accent/10 rounded-lg">
+                            <UserCircle className="h-5 w-5" /> Mi Perfil
+                        </Link>
+
                         {canAccessAdmin && (
-                            <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2 text-lg font-medium text-accent hover:bg-accent/10 rounded-lg">
+                            <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2 text-lg font-medium text-red-400 hover:bg-red-400/10 rounded-lg">
                                 <User className="h-5 w-5" /> Panel Admin
                             </Link>
                         )}

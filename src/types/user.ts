@@ -14,7 +14,9 @@ export interface User {
     region: string; // Región del usuario
     comuna: string; // Comuna del usuario
     address: string; // Detalle de dirección (Calle, número, etc.)
-
+// 🟢 NUEVO: Porcentaje de descuento asignado al usuario
+ discountPercentage?: number;
+ 
  createdAt: string;
  updatedAt: string;
 }
