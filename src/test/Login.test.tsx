@@ -13,12 +13,10 @@ describe('Vista Login', () => {
             </BrowserRouter>
         );
 
-        // Assert
         // Verificamos que el título principal esté presente
         expect(screen.getByText('Iniciar Sesión')).toBeDefined();
         
         // Verificamos que existan los campos de correo y contraseña
-        // (Buscamos por el placeholder o label según corresponda en tu componente)
         expect(screen.getByPlaceholderText(/ejemplo@correo.com/i)).toBeDefined();
         expect(screen.getByPlaceholderText(/••••••••/i)).toBeDefined();
         

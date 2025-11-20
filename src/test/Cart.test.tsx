@@ -20,10 +20,10 @@ vi.mock('@/lib/cartStorage', () => ({
     clearCart: vi.fn()
 }));
 
-// 2. Mock del usuario (CORREGIDO: Se agrega hasAdminAccess)
+// 2. Mock del usuario 
 vi.mock('@/lib/service/authenticateUser', () => ({
     getCurrentUser: () => null,
-    hasAdminAccess: () => false // <--- ESTA LÍNEA SOLUCIONA EL ERROR
+    hasAdminAccess: () => false 
 }));
 
 // 3. Mock de los storages adicionales para evitar errores
