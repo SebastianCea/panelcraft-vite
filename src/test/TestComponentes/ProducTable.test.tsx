@@ -157,6 +157,8 @@ describe('Componente ProductTable', () => {
                 isAdmin={true} 
             />
         );
+
+        console.log(screen.debug())
         
         // Ahora sí
         expect(queryAllByTestId('icon-edit').length).toBeGreaterThan(0);

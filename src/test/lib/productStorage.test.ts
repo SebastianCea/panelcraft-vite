@@ -23,10 +23,10 @@ const MOCK_PRODUCT_DATA = {
 
 describe('productStorage - Prueba de Actualización de Stock', () => {
 
-    // 💡 Paso de Aislamiento: Limpia el localStorage antes de cada prueba.
+    //  Paso de Aislamiento: Limpia el localStorage antes de cada prueba.
     beforeEach(() => {
         localStorage.clear();
-        // 💡 CASTEO (as ProductFormData): Aquí le decimos a TypeScript: "Confía en mí, es el tipo de entrada correcto."
+        // CASTEO (as ProductFormData): Aquí le decimos a TypeScript: "Confía en mí, es el tipo de entrada correcto."
         addProduct(MOCK_PRODUCT_DATA as ProductFormData); 
     });
 
