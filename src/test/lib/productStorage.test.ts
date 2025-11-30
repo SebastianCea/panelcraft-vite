@@ -1,12 +1,18 @@
-import { test, expect, describe, beforeEach } from 'vitest';
-// 🚨 Ajusta las rutas de importación según sea necesario
-import { getProducts, updateStock, addProduct, getProductsByCategory } from '../../lib/productStorage'; 
-import { Product, ProductFormData } from '@/types/product'; 
+import { test, expect, describe, beforeEach, vi } from 'vitest';
+import { 
+    getProducts, 
+    updateStock, 
+    addProduct, 
+    getProductsByCategory, 
+    getProductById, 
+    updateProduct, 
+    deleteProduct, 
+    getFeaturedProducts 
+} from '../../lib/productStorage'; 
+import { ProductFormData } from '@/types/product'; 
 
-
-
-
-const MOCK_PRODUCT_DATA = {
+// interfaz ProductFormData
+const MOCK_PRODUCT_DATA: ProductFormData = {
     name: 'Teclado Gamer Hyper-K',
     price: 45000,
     category: 'accesorios',
@@ -18,70 +24,124 @@ const MOCK_PRODUCT_DATA = {
     updatedAt: new Date().toISOString(),
 };
 
+describe('productStorage - Cobertura Completa', () => {
 
-
-
-describe('productStorage - Prueba de Actualización de Stock', () => {
-
-    // 💡 Paso de Aislamiento: Limpia el localStorage antes de cada prueba.
+    // Limpiar localStorage antes de cada prueba
     beforeEach(() => {
         localStorage.clear();
-        // 💡 CASTEO (as ProductFormData): Aquí le decimos a TypeScript: "Confía en mí, es el tipo de entrada correcto."
-        addProduct(MOCK_PRODUCT_DATA as ProductFormData); 
+        addProduct(MOCK_PRODUCT_DATA); 
     });
 
-    test('debe restar correctamente la cantidad vendida del stock total', () => {
-        // Arrange (Configuración inicial)
+    // --- 1. PRUEBAS DE ACTUALIZACIÓN DE STOCK ---
+    test('updateStock: debe restar correctamente la cantidad vendida', () => {
         const initialProducts = getProducts();
         const productId = initialProducts[0].id;
-        const quantityToSell = 5;
-
-        // Act (Acción: Simular una venta)
-        updateStock(productId, quantityToSell);
-
-        // Assert (Verificación)
+        updateStock(productId, 5);
+        
         const updatedProducts = getProducts();
-        const finalStock = updatedProducts[0].stock;
-        
-        const expectedStock = MOCK_PRODUCT_DATA.stock - quantityToSell; // 50 - 5 = 45
-
-        //  Verificamos que la resta sea correcta
-        expect(finalStock).toBe(expectedStock);
-        
-       
+        expect(updatedProducts[0].stock).toBe(45);
     });
 
-    test('debe prevenir que el stock caiga a valores negativos', () => {
-        // Arrange (Configuración inicial)
+    test('updateStock: debe prevenir stock negativo (fijar en 0)', () => {
         const initialProducts = getProducts();
         const productId = initialProducts[0].id;
-        const quantityToOversell = 100; // Intentamos vender más de 50
-
-        // Act (Acción: Intentar vender en exceso)
-        updateStock(productId, quantityToOversell);
-
-        // Assert (Verificación)
-        const updatedProducts = getProducts();
-        const finalStock = updatedProducts[0].stock;
         
-        // El stock final debe ser 0 (por la lógica implementada en updateStock)
-        expect(finalStock).toBe(0); 
+        // Espiamos console.error para que no ensucie la salida del test
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        
+        updateStock(productId, 100); // Intentar vender más de lo que hay
+        
+        const updatedProducts = getProducts();
+        expect(updatedProducts[0].stock).toBe(0);
+        expect(consoleSpy).toHaveBeenCalled(); 
+        consoleSpy.mockRestore();
     });
 
-    test('debe devolver solo los productos que coinciden con la categoría solicitada', () => {
-        const targetCategory = 'accesorios';
+    test('updateStock: debe manejar productos no existentes sin crashear', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        
+        // Intentamos actualizar un ID que no existe
+        updateStock('id-inexistente', 5);
+        
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+    });
 
-        // Act: Llamar a la función que queremos probar
-        const filteredProducts = getProductsByCategory(targetCategory);
+    // --- 2. PRUEBAS DE BÚSQUEDA ---
+    test('getProductById: debe encontrar un producto existente', () => {
+        const products = getProducts();
+        const targetId = products[0].id;
+        
+        const found = getProductById(targetId);
+        expect(found).toBeDefined();
+        expect(found?.name).toBe(MOCK_PRODUCT_DATA.name);
+    });
 
-        // Assert:
-        // 1. Verificamos que la cantidad sea la esperada (solo Teclado Gamer Hyper-K)
-        expect(filteredProducts.length).toBe(1);
+    test('getProductById: debe retornar undefined si no existe', () => {
+        const found = getProductById('id-falso-123');
+        expect(found).toBeUndefined();
+    });
 
-        // 2. Verificamos que el producto devuelto tenga la categoría correcta
-        expect(filteredProducts[0].category).toBe(targetCategory);
+    test('getProductsByCategory: debe filtrar correctamente', () => {
+        // Agregamos un producto de otra categoría para probar el filtro
+        const otherProduct: ProductFormData = { 
+            ...MOCK_PRODUCT_DATA, 
+            name: 'Polera', 
+            category: 'ropa' 
+        };
+        addProduct(otherProduct);
 
-        // 3. Verificamos que el producto devuelto sea el correcto
-        expect(filteredProducts[0].name).toBe('Teclado Gamer Hyper-K');
+        const accesorios = getProductsByCategory('accesorios');
+        const ropa = getProductsByCategory('ropa');
+
+        expect(accesorios.length).toBe(1);
+        expect(accesorios[0].category).toBe('accesorios');
+        expect(ropa.length).toBe(1);
+        expect(ropa[0].category).toBe('ropa');
+    });
+
+    test('getFeaturedProducts: debe devolver los primeros productos (límite 6)', () => {
+        // Llenamos con más productos para probar el slice
+        for (let i = 0; i < 10; i++) {
+            addProduct({ ...MOCK_PRODUCT_DATA, name: `Prod ${i}` });
+        }
+        
+        const featured = getFeaturedProducts();
+        expect(featured.length).toBeLessThanOrEqual(6);
+    });
+
+    // --- 3. PRUEBAS DE CRUD (UPDATE / DELETE) ---
+    test('updateProduct: debe actualizar datos de un producto existente', () => {
+        const products = getProducts();
+        const idToUpdate = products[0].id;
+        
+        const newData: ProductFormData = {
+            ...MOCK_PRODUCT_DATA,
+            name: 'Teclado Actualizado v2',
+            price: 99990
+        };
+
+        updateProduct(idToUpdate, newData);
+
+        const updated = getProductById(idToUpdate);
+        expect(updated?.name).toBe('Teclado Actualizado v2');
+        expect(updated?.price).toBe(99990);
+    });
+
+    test('updateProduct: debe lanzar error si el producto no existe', () => {
+        expect(() => {
+            updateProduct('id-fantasma', MOCK_PRODUCT_DATA);
+        }).toThrowError(/no encontrado/);
+    });
+
+    test('deleteProduct: debe eliminar un producto por ID', () => {
+        const products = getProducts();
+        const idToDelete = products[0].id;
+
+        deleteProduct(idToDelete);
+
+        const afterDelete = getProductById(idToDelete);
+        expect(afterDelete).toBeUndefined();
+        expect(getProducts().length).toBe(0);
     });
 });
