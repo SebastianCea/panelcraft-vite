@@ -24,9 +24,16 @@ const Cart = () => {
 
  useEffect(() => {
   loadCart();
-  // Cargar usuario al montar
   const user = getCurrentUser();
   setCurrentUser(user);
+
+  // 🟢 Listener de sincronización para actualizar descuento
+  const handleAuthChange = () => {
+      setCurrentUser(getCurrentUser());
+  };
+  window.addEventListener('authChange', handleAuthChange);
+  return () => window.removeEventListener('authChange', handleAuthChange);
+
  }, []);
 
  const loadCart = () => {
@@ -265,7 +272,12 @@ const Cart = () => {
     </div>
    </footer>
    
-   <GuestCheckoutModal isOpen={isGuestModalOpen} onClose={() => setIsGuestModalOpen(false)} onConfirm={handleConfirmCheckout} />
+   <GuestCheckoutModal 
+      isOpen={isGuestModalOpen} 
+      onClose={() => setIsGuestModalOpen(false)} 
+      onConfirm={handleConfirmCheckout}
+      currentUser={currentUser} 
+   />
   </div>
  );
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // 🟢 Importar useNavigate
 import { User } from '@/types/user';
 import { Product } from '@/types/product';
 import { Order } from '@/types/order';
@@ -21,13 +22,15 @@ import { ProductFormModal } from '@/components/admin/ProductFormModal';
 import { ProductViewModal } from '@/components/admin/ProductViewModal';
 import { OrderTable } from '@/components/admin/OrderTable';
 import { OrderDetailModal } from '@/components/admin/OrderDetailModal';
-import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; // Corregido: asumimos que DeleteConfirmDialog usa el alias @/components/ui
+import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Plus, Users as UsersIcon, Package, ShoppingCart, TrendingUp, Store } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate(); // 🟢 Hook de navegación
+  
   // --- ESTADO DE USUARIO ACTUAL ---
   const [currentUser, setCurrentUser] = useState<User | null>(null); 
   const isSeller = currentUser?.userType === 'Vendedor'; 
@@ -56,7 +59,7 @@ const AdminDashboard = () => {
  const [sidebarOpen, setSidebarOpen] = useState(false);
  const [modalOpen, setModalOpen] = useState(false); 
  const [productModalOpen, setProductModalOpen] = useState(false); 
- const [viewModalOpen, setViewModalOpen] = useState(false); // Modal de vista general
+ const [viewModalOpen, setViewModalOpen] = useState(false); 
  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
  
 
@@ -70,32 +73,65 @@ const AdminDashboard = () => {
   setGrowthPeriod(growthData.comparisonPeriod);
  };
 
- // --- LÓGICA DE CARGA DE DATOS ---
+ // --- LÓGICA DE CARGA Y AUTENTICACIÓN ---
  useEffect(() => {
   initializeDemoData(); 
   loadUsers(); 
   loadProducts(); 
   loadOrders();
     
-    // Cargar usuario actual al montar
+    // Carga inicial
     const loggedUser = getCurrentUser();
     setCurrentUser(loggedUser);
     
-    // Si entra un vendedor y está en la sección users, lo mandamos a home (seguridad extra)
+    // Protección inicial de ruta
     if (loggedUser?.userType === 'Vendedor' && activeSection === 'users') {
         setActiveSection('home');
     }
- }, [activeSection]);
+
+    // 🟢 LISTENER DE CAMBIO DE AUTH (Para Logout remoto)
+    const handleAuthChange = () => {
+        const updatedUser = getCurrentUser();
+        setCurrentUser(updatedUser);
+        
+        // Si no hay usuario (se cerró sesión en otra pestaña), expulsar
+        if (!updatedUser) {
+            navigate('/login');
+            toast.info("Sesión cerrada desde otra ventana.");
+        }
+    };
+
+    window.addEventListener('authChange', handleAuthChange);
+
+    return () => {
+        window.removeEventListener('authChange', handleAuthChange);
+    };
+
+ }, [activeSection, navigate]); // Añadimos navigate a dependencias
 
 
   // --- 🟢 LÓGICA DE USUARIOS ---
   const handleEdit = (user: User) => { setSelectedUser(user); setModalOpen(true); };
-  const handleDeleteUser = (id: string) => { const u = users.find(x=>x.id===id); if(u) { setUserToDelete({id, name:u.name}); setDeleteDialogOpen(true); }};
+  
+  const handleDeleteUser = (id: string) => { 
+      const u = users.find(x => x.id === id); 
+      if (u) { 
+          const userOrders = getOrders().filter(order => order.rutCliente === u.rut);
+          
+          if (userOrders.length > 0) {
+              toast.error(`No se puede eliminar al usuario ${u.name} porque tiene ${userOrders.length} compra(s) registrada(s).`);
+              return; 
+          }
+
+          setUserToDelete({ id, name: u.name }); 
+          setDeleteDialogOpen(true); 
+      }
+  };
+
   const handleNewUser = () => { setSelectedUser(null); setModalOpen(true); };
   const handleCreateUser = (data: any) => { addUser(data); loadUsers(); setModalOpen(false); toast.success('Usuario creado'); };
   const handleUpdateUser = (data: any) => { if(selectedUser) { updateUser(selectedUser.id, data); loadUsers(); setModalOpen(false); } };
   
-  // 💡 FIX: Reactivamos la vista para el Administrador (ya que es el único que ve la tabla)
   const handleView = (user: User) => { setSelectedUser(user); setViewModalOpen(true); }; 
 
 
@@ -118,7 +154,6 @@ const AdminDashboard = () => {
       }
   };
   
-  // 💡 FIX: Reactivamos la vista para TODOS los que acceden a la sección (Admin/Vendedor)
   const handleViewProduct = (product: Product) => { setSelectedProduct(product); setViewModalOpen(true); }; 
   
   const handleDeleteProduct = (id: string) => { 
@@ -144,10 +179,21 @@ const AdminDashboard = () => {
 
   // --- Lógica de Órdenes y Delete Confirm ---
   const handleViewOrderDetails = (order: Order) => { setSelectedOrder(order); setViewModalOpen(true); };
+  
   const confirmDelete = () => {
-      if (userToDelete) { deleteUser(userToDelete.id); loadUsers(); toast.success('Usuario eliminado'); }
-      else if (productToDelete) { deleteProduct(productToDelete.id); loadProducts(); toast.success('Producto eliminado'); }
-      setDeleteDialogOpen(false); setUserToDelete(null); setProductToDelete(null);
+      if (userToDelete) { 
+          deleteUser(userToDelete.id); 
+          loadUsers(); 
+          toast.success('Usuario eliminado correctamente'); 
+      }
+      else if (productToDelete) { 
+          deleteProduct(productToDelete.id); 
+          loadProducts(); 
+          toast.success('Producto eliminado correctamente'); 
+      }
+      setDeleteDialogOpen(false); 
+      setUserToDelete(null); 
+      setProductToDelete(null);
   };
 
 
@@ -155,7 +201,6 @@ const AdminDashboard = () => {
  const renderContent = () => {
   switch (activeSection) {
    case 'home':
-        // ... (Contenido Home sin cambios)
         return (
      <div className="space-y-8">
             {/* Header de Bienvenida Personalizado */}
@@ -171,7 +216,7 @@ const AdminDashboard = () => {
               </div>
       </div>
 
-            {/* CARD REPORTS (TODOS VEN) */}
+            {/* CARD REPORTS */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               {/* Total Usuarios (Solo Admin) */}
               {!isSeller && (
@@ -187,7 +232,7 @@ const AdminDashboard = () => {
        </Card>
               )}
 
-              {/* Productos (Todos) */}
+              {/* Productos */}
        <Card className="border-border bg-card hover:border-accent/50 transition-colors">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
          <CardTitle className="text-sm font-medium">Productos</CardTitle>
@@ -199,7 +244,7 @@ const AdminDashboard = () => {
         </CardContent>
        </Card>
 
-              {/* Reporte / Crecimiento (TODOS VEN) */}
+              {/* Reporte / Crecimiento */}
        <Card className="border-border bg-card hover:border-accent/50 transition-colors">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
@@ -215,7 +260,7 @@ const AdminDashboard = () => {
         </CardContent>
        </Card>
 
-              {/* Órdenes (Todos) */}
+              {/* Órdenes */}
        <Card className="border-border bg-card hover:border-accent/50 transition-colors">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
          <CardTitle className="text-sm font-medium">Órdenes</CardTitle>
@@ -229,14 +274,13 @@ const AdminDashboard = () => {
 
       </div>
 
-            {/* Acceso Rápido con Condicionales */}
+            {/* Acceso Rápido */}
       <Card className="border-border bg-card">
        <CardHeader>
         <CardTitle className="text-accent">Acceso Rápido</CardTitle>
                 <CardDescription>Accede a las funciones principales</CardDescription>
        </CardHeader>
        <CardContent className="flex flex-wrap gap-4">
-                {/* 💡 SOLO ADMIN: Gestionar Usuarios */}
                 {!isSeller && (
         <Button
          onClick={() => setActiveSection('users')}
@@ -246,7 +290,6 @@ const AdminDashboard = () => {
          Gestionar Usuarios
         </Button>
                 )}
-                {/* 💡 TODOS: Gestionar Productos */}
         <Button 
          onClick={() => setActiveSection('products')}
          className="bg-accent text-accent-foreground hover:bg-accent/90"
@@ -255,7 +298,6 @@ const AdminDashboard = () => {
          Gestionar Productos
         </Button>
 
-                {/* TODOS: Ver Órdenes (Acceso Directo) */}
                 <Button 
                     onClick={() => setActiveSection('orders')}
                     className="bg-accent text-accent-foreground hover:bg-accent/90"
@@ -264,7 +306,6 @@ const AdminDashboard = () => {
                     Ver Órdenes
                 </Button>
 
-                {/* Ir A Tienda */}
                 <Button 
                     onClick={() => window.location.href = '/home'} 
                     variant="outline" 
@@ -279,7 +320,6 @@ const AdminDashboard = () => {
     );
 
    case 'users':
-        // Doble protección: Si es vendedor, no muestra nada aquí
         if (isSeller) return null;
     return (
      <div className="space-y-6">
@@ -296,7 +336,6 @@ const AdminDashboard = () => {
         Nuevo Usuario
        </Button>
        </div>
-            {/* 💡 La tabla de usuarios no acepta 'isAdmin' — el control de permisos lo maneja internamente o vía currentUser */}
       <UserTable users={users} onEdit={handleEdit} onDelete={handleDeleteUser} onView={handleView} />
      </div>
     );
@@ -310,7 +349,6 @@ const AdminDashboard = () => {
         <p className="text-lg text-muted-foreground">Administra y visualiza todos los productos</p>
        </div>
               
-              {/* Botón 'Nuevo Producto' oculto para Vendedores */}
               {!isSeller && (
        <Button
         onClick={handleNewProduct}
@@ -322,7 +360,6 @@ const AdminDashboard = () => {
               )}
 
        </div>
-            {/* 💡 Pasamos el rol para controlar editar/eliminar y View (Detalle) */}
       <ProductTable products={products} onEdit={handleEditProduct} onDelete={handleDeleteProduct} onView={handleViewProduct} isAdmin={isAdmin} />
      </div>
     );
@@ -347,7 +384,6 @@ const AdminDashboard = () => {
 
  return (
   <div className="min-h-screen bg-background">
-      {/* 💡 Pasamos el usuario actual al Sidebar para que oculte opciones */}
    <Sidebar
     activeSection={activeSection}
     onSectionChange={setActiveSection}
@@ -361,17 +397,14 @@ const AdminDashboard = () => {
     <main className="p-6">{renderContent()}</main>
    </div>
 
-      {/* Modales de Edición/Creación (Solo visibles para Administrador) */}
    {isAdmin && (
           <>
-          {/* Modal de Usuario */}
           <UserFormModal
             isOpen={modalOpen}
             onClose={() => { setModalOpen(false); setSelectedUser(null); }}
             user={selectedUser}
             onSubmit={selectedUser ? handleUpdateUser : handleCreateUser}
           />
-          {/* Modal de Producto */}
           {activeSection === 'products' && (
             <ProductFormModal
               isOpen={productModalOpen}
@@ -380,16 +413,14 @@ const AdminDashboard = () => {
               onSubmit={handleSubmitProduct}
             />
           )}
-          {/* 💡 FIX: Modal de Vista de Usuario - Reactivamos el modal de vista para Admin */}
           <UserViewModal
-            isOpen={viewModalOpen && activeSection === 'users' && !!selectedUser} // Aseguramos que solo se muestre en sección 'users' y con un usuario seleccionado
+            isOpen={viewModalOpen && activeSection === 'users' && !!selectedUser} 
             onClose={() => { setViewModalOpen(false); setSelectedUser(null); }}
             user={selectedUser}
           />
           </>
       )}
 
-      {/* 💡 FIX: Modal de Detalle de Producto (Visible para TODOS los que tienen acceso a la sección products) */}
       {activeSection === 'products' && (
           <ProductViewModal
             isOpen={viewModalOpen && !!selectedProduct}
@@ -398,14 +429,12 @@ const AdminDashboard = () => {
           />
       )}
 
-      {/* Modal de Detalle de Orden (Visible para todos los que accedan a la sección Orders) */}
       <OrderDetailModal
         isOpen={viewModalOpen && activeSection === 'orders'}
         onClose={() => { setViewModalOpen(false); setSelectedOrder(null); }}
         order={selectedOrder}
       />
       
-      {/* Diálogo de Confirmación (Solo Administrador lanza las acciones que lo necesitan) */}
    <DeleteConfirmDialog
     isOpen={deleteDialogOpen}
     onClose={() => { setDeleteDialogOpen(false); setUserToDelete(null); setProductToDelete(null); }}

@@ -3,8 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react"; // 1. Importar useEffect
-import { initializeDemoData } from "@/lib/InitializeDemoData"; // 2. Importar la función de inicialización
+import { useEffect } from "react"; 
+import { initializeDemoData } from "@/lib/InitializeDemoData"; 
 
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
@@ -21,9 +21,30 @@ import Profile from "./pages/Profile";
 const queryClient = new QueryClient();
 
 const App = () => {
-  // 3. Efecto para inicializar datos apenas carga la App
   useEffect(() => {
+    // 1. Inicializar datos demo
     initializeDemoData();
+
+    // 2. 🟢 LISTENER GLOBAL DE SINCRONIZACIÓN ENTRE PESTAÑAS 🟢
+    // Este evento se dispara cuando OTRA pestaña modifica el localStorage
+    const handleStorageChange = (event: StorageEvent) => {
+      // Si la clave de sesión ('levelup_session') fue eliminada (newValue === null)
+      if (event.key === 'levelup_session' && event.newValue === null) {
+        // Disparamos manualmente el evento 'authChange' en ESTA pestaña
+        // para que los componentes (Header, Cart, etc.) se actualicen.
+        window.dispatchEvent(new Event('authChange'));
+      }
+      // Opcional: Si se inicia sesión en otra pestaña también podemos sincronizar
+      if (event.key === 'levelup_session' && event.newValue) {
+        window.dispatchEvent(new Event('authChange'));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   return (

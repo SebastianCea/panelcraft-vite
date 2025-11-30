@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { User as UserIcon, Gift, Save, Calendar, Mail, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// Esquema de validación para edición de perfil
 const profileSchema = z.object({
   email: z.string().email('Correo inválido').min(1, 'El correo es requerido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(20, 'Máximo 20 caracteres'),
@@ -30,14 +29,28 @@ const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Cargar usuario al montar
   useEffect(() => {
+    // 1. Carga inicial
     const loggedUser = getCurrentUser();
     if (!loggedUser) {
       navigate('/login');
       return;
     }
     setUser(loggedUser);
+
+    // 2. 🟢 Listener de sincronización de sesión
+    const handleAuthChange = () => {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            navigate('/login'); // Expulsar si cerró sesión en otra pestaña
+        } else {
+            setUser(currentUser); // Actualizar si cambió datos en otra pestaña
+        }
+    };
+
+    window.addEventListener('authChange', handleAuthChange);
+    return () => window.removeEventListener('authChange', handleAuthChange);
+
   }, [navigate]);
 
   const form = useForm<ProfileFormData>({
@@ -51,7 +64,6 @@ const Profile = () => {
     },
   });
 
-  // Actualizar valores del formulario cuando carga el usuario
   useEffect(() => {
     if (user) {
       const [year, month, day] = user.birthdate.split('-');
@@ -70,18 +82,15 @@ const Profile = () => {
 
     const birthdateFormatted = `${data.birthYear}-${data.birthMonth.padStart(2, '0')}-${data.birthDay.padStart(2, '0')}`;
 
-    // Objeto con los cambios
     const updates: Partial<User> = {
       email: data.email,
       password: data.password,
       birthdate: birthdateFormatted,
     };
 
-    // 1. Actualizar en localStorage (Base de datos simulada)
     const updatedUser = updateUser(user.id, updates);
 
     if (updatedUser) {
-      // 2. Actualizar sesión actual
       login(updatedUser);
       setUser(updatedUser);
       
@@ -101,7 +110,6 @@ const Profile = () => {
 
   if (!user) return null;
 
-  // Helper para meses
   const months = [
     { value: '1', label: 'Enero' }, { value: '2', label: 'Febrero' }, { value: '3', label: 'Marzo' },
     { value: '4', label: 'Abril' }, { value: '5', label: 'Mayo' }, { value: '6', label: 'Junio' },
@@ -120,7 +128,6 @@ const Profile = () => {
             <UserIcon className="h-8 w-8" /> Mi Perfil
           </h1>
 
-          {/* TARJETA DE INFORMACIÓN Y DESCUENTO */}
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="bg-card border-border">
                 <CardHeader>
@@ -158,7 +165,6 @@ const Profile = () => {
             </Card>
           </div>
 
-          {/* FORMULARIO DE EDICIÓN */}
           <Card className="bg-card border-border mt-8">
             <CardHeader>
                 <CardTitle className="text-xl text-accent">Editar Datos de Cuenta</CardTitle>
@@ -169,7 +175,6 @@ const Profile = () => {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         
                         <div className="grid md:grid-cols-2 gap-6">
-                            {/* Email */}
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -184,7 +189,6 @@ const Profile = () => {
                                 )}
                             />
 
-                            {/* Password */}
                             <FormField
                                 control={form.control}
                                 name="password"
@@ -200,7 +204,6 @@ const Profile = () => {
                             />
                         </div>
 
-                        {/* Fecha de Nacimiento */}
                         <div className="space-y-2">
                             <FormLabel className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Fecha de Nacimiento</FormLabel>
                             <div className="grid grid-cols-3 gap-4">

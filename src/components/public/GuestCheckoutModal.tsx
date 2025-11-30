@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,6 +21,7 @@ import {
  SelectTrigger,
  SelectValue,
 } from '@/components/ui/select';
+import { User } from '@/types/user';
 
 // Definición de Couriers (Actualizado)
 const COURIERS = [
@@ -117,9 +119,10 @@ interface GuestCheckoutModalProps {
  isOpen: boolean;
  onClose: () => void;
  onConfirm: (data: GuestCheckoutFormData) => void;
+ currentUser?: User | null; // 🟢 NUEVA PROP OPCIONAL
 }
 
-export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckoutModalProps) => {
+export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm, currentUser }: GuestCheckoutModalProps) => {
  const form = useForm<GuestCheckoutFormData>({
   resolver: zodResolver(guestCheckoutSchema),
   defaultValues: {
@@ -146,6 +149,46 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
   // Lista de comunas dependiente de la región seleccionada
   const availableCommunes = selectedRegion ? COMUNAS_POR_REGION[selectedRegion] : [];
 
+  // 🟢 EFECTO PARA AUTO-COMPLETAR DATOS
+  useEffect(() => {
+    if (isOpen && currentUser) {
+        // Lógica simple para separar nombre y apellido
+        const nameParts = currentUser.name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Reseteamos el formulario con los datos del usuario
+        form.reset({
+            firstName: firstName,
+            lastName: lastName,
+            email: currentUser.email,
+            rut: currentUser.rut,
+            region: currentUser.region || undefined,
+            // Importante: Mapeamos 'comuna' del usuario a 'commune' del formulario
+            commune: currentUser.comuna || undefined, 
+            addressDetail: currentUser.address || '',
+            // Mantenemos vacíos los campos de selección de envío/pago
+            courier: undefined,
+            paymentMethod: undefined,
+            branchOffice: undefined
+        });
+    } else if (isOpen && !currentUser) {
+        // Si no hay usuario (es invitado real), limpiamos el formulario
+        form.reset({
+            firstName: '',
+            lastName: '',
+            email: '',
+            rut: '',
+            region: undefined,
+            commune: undefined,
+            addressDetail: '',
+            courier: undefined,
+            paymentMethod: undefined,
+            branchOffice: undefined
+        });
+    }
+ }, [isOpen, currentUser, form]);
+
 
  const onSubmit = (data: GuestCheckoutFormData) => {
     // Limpiamos los campos que no se usaron antes de enviar
@@ -169,7 +212,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
     <DialogHeader>
      <DialogTitle className="text-2xl text-accent">Datos de Envío y Pago</DialogTitle>
      <DialogDescription>
-      Por favor, ingresa tus datos para completar la compra como invitado.
+      Por favor, ingresa tus datos para completar la compra.
      </DialogDescription>
     </DialogHeader>
 
@@ -242,7 +285,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
        render={({ field }) => (
         <FormItem>
          <FormLabel>Método de Entrega *</FormLabel>
-         <Select onValueChange={field.onChange} defaultValue={field.value}>
+         <Select onValueChange={field.onChange} value={field.value || undefined}>
           <FormControl>
            <SelectTrigger className="bg-input border-border">
             <SelectValue placeholder="Selecciona el método de entrega" />
@@ -269,7 +312,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Sucursal de Retiro *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger className="bg-input border-border">
                           <SelectValue placeholder="Selecciona la sucursal" />
@@ -307,7 +350,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
                             // 💡 RESETEAMOS LA COMUNA AL CAMBIAR LA REGIÓN
                             form.setValue('commune', undefined); 
                           }} 
-                          defaultValue={field.value}
+                          value={field.value || undefined}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
@@ -334,7 +377,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Comuna *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedRegion}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined} disabled={!selectedRegion}>
                           <FormControl>
                             <SelectTrigger className="bg-input border-border">
                               <SelectValue placeholder="Selecciona comuna" />
@@ -378,7 +421,7 @@ export const GuestCheckoutModal = ({ isOpen, onClose, onConfirm }: GuestCheckout
        render={({ field }) => (
         <FormItem>
          <FormLabel>Método de Pago *</FormLabel>
-         <Select onValueChange={field.onChange} defaultValue={field.value}>
+         <Select onValueChange={field.onChange} value={field.value || undefined}>
           <FormControl>
            <SelectTrigger className="bg-input border-border">
             <SelectValue placeholder="Selecciona un método de pago" />
