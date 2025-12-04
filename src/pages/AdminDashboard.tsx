@@ -1,448 +1,387 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 🟢 Importar useNavigate
-import { User } from '@/types/user';
-import { Product } from '@/types/product';
-import { Order } from '@/types/order';
-
-// Storages & Services
-import { getUsers, addUser, updateUser, deleteUser } from '@/lib/userStorage';
-import { getProducts, addProduct, updateProduct, deleteProduct } from '@/lib/productStorage';
-import { getOrders, calculateGrowthRate } from '@/lib/orderStorage';
-import { initializeDemoData } from '@/lib/InitializeDemoData';
-import { getCurrentUser } from '@/lib/service/authenticateUser';
-
-// Components
-import { Header } from '@/components/layout/Header';
-import { Sidebar } from '@/components/layout/Sidebar'; 
-import { UserTable } from '@/components/admin/UserTable';
-import { UserFormModal } from '@/components/admin/UserFormModal';
-import { UserViewModal } from '@/components/admin/UserViewModal';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sidebar } from '@/components/layout/Sidebar';
 import { ProductTable } from '@/components/admin/ProductTable';
-import { ProductFormModal } from '@/components/admin/ProductFormModal';
-import { ProductViewModal } from '@/components/admin/ProductViewModal';
+import { UserTable } from '@/components/admin/UserTable';
 import { OrderTable } from '@/components/admin/OrderTable';
+import { ProductFormModal } from '@/components/admin/ProductFormModal';
+import { UserFormModal } from '@/components/admin/UserFormModal';
+import { ProductViewModal } from '@/components/admin/ProductViewModal';
+import { UserViewModal } from '@/components/admin/UserViewModal';
 import { OrderDetailModal } from '@/components/admin/OrderDetailModal';
-import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'; 
+import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog';
+import { getProducts, deleteProduct, addProduct, updateProduct } from '@/lib/productStorage';
+import { getUsers, deleteUser, addUser, updateUser } from '@/lib/userStorage';
+import { getOrders, calculateGrowthRate } from '@/lib/orderStorage';
+import { getCurrentUser, hasAdminAccess, logout } from '@/lib/service/authenticateUser';
+import { Product, ProductFormData } from '@/types/product';
+import { User, UserFormData } from '@/types/user';
+import { Order } from '@/types/order';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Package, ShoppingCart, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Plus, Users as UsersIcon, Package, ShoppingCart, TrendingUp, Store } from 'lucide-react';
-import { toast } from 'sonner';
 
 const AdminDashboard = () => {
-  const navigate = useNavigate(); // 🟢 Hook de navegación
+  const [activeTab, setActiveTab] = useState("products");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // --- ESTADO DE USUARIO ACTUAL ---
-  const [currentUser, setCurrentUser] = useState<User | null>(null); 
-  const isSeller = currentUser?.userType === 'Vendedor'; 
-  const isAdmin = currentUser?.userType === 'Administrador'; 
+  // Modales y estados de selección
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteItemType, setDeleteItemType] = useState<'product' | 'user' | null>(null);
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+  const [isVendorDeletion, setIsVendorDeletion] = useState(false); // 🟢 Estado para saber si es vendedor
 
- // --- ESTADO DE USUARIOS ---
- const [users, setUsers] = useState<User[]>([]);
- const [selectedUser, setSelectedUser] = useState<User | null>(null);
- const [userToDelete, setUserToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [growthRate, setGrowthRate] = useState({ percentage: 0, comparisonPeriod: '' });
 
- // --- ESTADO DE PRODUCTOS ---
- const [products, setProducts] = useState<Product[]>([]);
- const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
- const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null); 
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.userType === 'Administrador';
 
- // --- ESTADO DE ÓRDENES ---
- const [orders, setOrders] = useState<Order[]>([]);
- const [selectedOrder, setSelectedOrder] = useState<Order | null>(null); 
-
- // ESTADOS PARA CRECIMIENTO
-  const [growthPercentage, setGrowthPercentage] = useState(0); 
-  const [growthPeriod, setGrowthPeriod] = useState('vs mes anterior');
- 
- // --- ESTADO DE UI Y MODALES ---
- const [activeSection, setActiveSection] = useState('home');
- const [sidebarOpen, setSidebarOpen] = useState(false);
- const [modalOpen, setModalOpen] = useState(false); 
- const [productModalOpen, setProductModalOpen] = useState(false); 
- const [viewModalOpen, setViewModalOpen] = useState(false); 
- const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
- 
-
- const loadUsers = () => setUsers(getUsers());
- const loadProducts = () => setProducts(getProducts());
- const loadOrders = () => {
-  const loadedOrders = getOrders();
-  setOrders(loadedOrders); 
-  const growthData = calculateGrowthRate();
-  setGrowthPercentage(growthData.percentage);
-  setGrowthPeriod(growthData.comparisonPeriod);
- };
-
- // --- LÓGICA DE CARGA Y AUTENTICACIÓN ---
- useEffect(() => {
-  initializeDemoData(); 
-  loadUsers(); 
-  loadProducts(); 
-  loadOrders();
-    
-    // Carga inicial
-    const loggedUser = getCurrentUser();
-    setCurrentUser(loggedUser);
-    
-    // Protección inicial de ruta
-    if (loggedUser?.userType === 'Vendedor' && activeSection === 'users') {
-        setActiveSection('home');
-    }
-
-    // 🟢 LISTENER DE CAMBIO DE AUTH (Para Logout remoto)
-    const handleAuthChange = () => {
-        const updatedUser = getCurrentUser();
-        setCurrentUser(updatedUser);
-        
-        // Si no hay usuario (se cerró sesión en otra pestaña), expulsar
-        if (!updatedUser) {
+  useEffect(() => {
+    const checkAuthAndLoad = async () => {
+        if (!hasAdminAccess()) {
             navigate('/login');
-            toast.info("Sesión cerrada desde otra ventana.");
+            return;
         }
+        await loadAllData();
     };
+    checkAuthAndLoad();
+  }, [navigate]);
 
-    window.addEventListener('authChange', handleAuthChange);
+  const loadAllData = async () => {
+    setIsLoading(true);
+    try {
+        const [loadedProducts, loadedOrders, growth] = await Promise.all([
+            getProducts(),
+            getOrders(),
+            calculateGrowthRate()
+        ]);
+        
+        setProducts(loadedProducts);
+        setOrders(loadedOrders);
+        setGrowthRate(growth);
 
-    return () => {
-        window.removeEventListener('authChange', handleAuthChange);
-    };
-
- }, [activeSection, navigate]); // Añadimos navigate a dependencias
-
-
-  // --- 🟢 LÓGICA DE USUARIOS ---
-  const handleEdit = (user: User) => { setSelectedUser(user); setModalOpen(true); };
-  
-  const handleDeleteUser = (id: string) => { 
-      const u = users.find(x => x.id === id); 
-      if (u) { 
-          const userOrders = getOrders().filter(order => order.rutCliente === u.rut);
-          
-          if (userOrders.length > 0) {
-              toast.error(`No se puede eliminar al usuario ${u.name} porque tiene ${userOrders.length} compra(s) registrada(s).`);
-              return; 
-          }
-
-          setUserToDelete({ id, name: u.name }); 
-          setDeleteDialogOpen(true); 
-      }
+        if (isAdmin) {
+            const loadedUsers = await getUsers();
+            setUsers(loadedUsers);
+        }
+    } catch (error) {
+        console.error("Error cargando dashboard:", error);
+        toast({ title: "Error", description: "No se pudieron cargar los datos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
   };
 
-  const handleNewUser = () => { setSelectedUser(null); setModalOpen(true); };
-  const handleCreateUser = (data: any) => { addUser(data); loadUsers(); setModalOpen(false); toast.success('Usuario creado'); };
-  const handleUpdateUser = (data: any) => { if(selectedUser) { updateUser(selectedUser.id, data); loadUsers(); setModalOpen(false); } };
-  
-  const handleView = (user: User) => { setSelectedUser(user); setViewModalOpen(true); }; 
-
-
-  // --- 🟢 LÓGICA DE PRODUCTOS ---
-  const handleNewProduct = () => { 
-      if (isAdmin) {
-          setSelectedProduct(null); 
-          setProductModalOpen(true); 
-      } else {
-          toast.error("Permiso denegado. Solo los administradores pueden crear productos.");
-      }
-  };
-  
-  const handleEditProduct = (product: Product) => { 
-      if (isAdmin) {
-          setSelectedProduct(product); 
-          setProductModalOpen(true); 
-      } else {
-          toast.error("Permiso denegado. Solo los administradores pueden editar productos.");
-      }
-  };
-  
-  const handleViewProduct = (product: Product) => { setSelectedProduct(product); setViewModalOpen(true); }; 
-  
-  const handleDeleteProduct = (id: string) => { 
-      if (isAdmin) {
-          const p = products.find(x=>x.id===id); 
-          if(p) { setProductToDelete({id, name:p.name}); setDeleteDialogOpen(true); }
-      } else {
-          toast.error("Permiso denegado. Solo los administradores pueden eliminar productos.");
-      }
-  };
-  
-  const handleSubmitProduct = (data: any) => { 
-      if (isAdmin) {
-          if(selectedProduct) updateProduct(selectedProduct.id, data); 
-          else addProduct(data); 
-          loadProducts(); 
-          setProductModalOpen(false); 
-          toast.success('Producto guardado'); 
-      } else {
-          toast.error("Permiso denegado. Solo los administradores pueden crear/editar productos.");
-      }
+  const handleSaveProduct = async (data: ProductFormData) => {
+    try {
+        if (editingProduct) {
+            await updateProduct(editingProduct.id, data);
+            toast({ title: "Producto actualizado" });
+        } else {
+            await addProduct(data);
+            toast({ title: "Producto creado" });
+        }
+        setIsProductModalOpen(false);
+        setEditingProduct(undefined);
+        setProducts(await getProducts());
+    } catch (error) {
+        toast({ title: "Error al guardar", variant: "destructive" });
+    }
   };
 
-  // --- Lógica de Órdenes y Delete Confirm ---
-  const handleViewOrderDetails = (order: Order) => { setSelectedOrder(order); setViewModalOpen(true); };
-  
-  const confirmDelete = () => {
-      if (userToDelete) { 
-          deleteUser(userToDelete.id); 
-          loadUsers(); 
-          toast.success('Usuario eliminado correctamente'); 
-      }
-      else if (productToDelete) { 
-          deleteProduct(productToDelete.id); 
-          loadProducts(); 
-          toast.success('Producto eliminado correctamente'); 
-      }
-      setDeleteDialogOpen(false); 
-      setUserToDelete(null); 
-      setProductToDelete(null);
+  const handleDeleteProductConfirm = async () => {
+    if (itemToDeleteId) {
+        await deleteProduct(itemToDeleteId);
+        setProducts(await getProducts());
+        toast({ title: "Producto eliminado" });
+    }
+    setDeleteConfirmOpen(false);
   };
 
+  const handleSaveUser = async (data: UserFormData) => {
+    try {
+        if (editingUser) {
+            await updateUser(editingUser.id, data);
+            toast({ title: "Usuario actualizado" });
+        } else {
+            const newUserPayload = {
+                ...data,
+                passwordConfirm: data.password || "",
+            };
+            await addUser(newUserPayload);
+            toast({ title: "Usuario creado" });
+        }
+        setIsUserModalOpen(false);
+        setEditingUser(undefined);
+        if (isAdmin) setUsers(await getUsers());
+    } catch (error) {
+        console.error(error);
+        toast({ title: "Error al guardar usuario", description: "Verifica los datos.", variant: "destructive" });
+    }
+  };
 
- // --- RENDERIZADO DE SECCIONES ---
- const renderContent = () => {
-  switch (activeSection) {
-   case 'home':
-        return (
-     <div className="space-y-8">
-            {/* Header de Bienvenida Personalizado */}
-      <div>
-       <h1 className="mb-2 text-4xl font-bold text-accent">
-        Bienvenido {currentUser?.name || 'Administrador'}
-       </h1>
-              <div className="flex items-center gap-2 text-xl text-muted-foreground">
-                <span>Panel de control Level-Up</span>
-                <span className="px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-800 text-sm border border-yellow-400">
-                    {currentUser?.userType}
-                </span>
-              </div>
-      </div>
+  // 🟢 Confirmación de eliminación de usuario (modificado para recibir razón)
+  const handleDeleteUserConfirm = async (reason?: string) => {
+    if (itemToDeleteId) {
+        const userToDelete = users.find(u => u.id === itemToDeleteId);
+        
+        if (userToDelete) {
+            // Regla: No eliminar si tiene órdenes
+            const hasOrders = orders.some(o => o.rutCliente === userToDelete.rut);
+            if (hasOrders) {
+                toast({ 
+                    title: "No se puede eliminar", 
+                    description: "Este usuario tiene órdenes asociadas.", 
+                    variant: "destructive" 
+                });
+                setDeleteConfirmOpen(false);
+                return;
+            }
 
-            {/* CARD REPORTS */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {/* Total Usuarios (Solo Admin) */}
-              {!isSeller && (
-       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-         <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
-         <UsersIcon className="h-4 w-4 text-accent" />
-        </CardHeader>
-        <CardContent>
-         <div className="text-2xl font-bold text-accent">{users.length}</div>
-         <p className="text-xs text-muted-foreground">Usuarios registrados</p>
-        </CardContent>
-       </Card>
-              )}
+            // Regla: No eliminar otros admins
+            if (userToDelete.userType === 'Administrador') {
+                toast({ 
+                    title: "Acción Prohibida", 
+                    description: "No se permite eliminar cuentas de Administrador.", 
+                    variant: "destructive" 
+                });
+                setDeleteConfirmOpen(false);
+                return;
+            }
 
-              {/* Productos */}
-       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-         <CardTitle className="text-sm font-medium">Productos</CardTitle>
-         <Package className="h-4 w-4 text-accent" />
-        </CardHeader>
-        <CardContent>
-         <div className="text-2xl font-bold text-accent">{products.length}</div> 
-         <p className="text-xs text-muted-foreground">Productos en inventario</p>
-        </CardContent>
-       </Card>
+            // 🟢 Regla: Si es vendedor, verificamos que tenga motivo
+            if (userToDelete.userType === 'Vendedor' && !reason) {
+                toast({ title: "Motivo requerido", variant: "destructive" });
+                return; 
+            }
+        }
 
-              {/* Reporte / Crecimiento */}
-       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
-          <TrendingUp className="h-4 w-4 text-accent" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-accent">
-            {`${growthPercentage > 0 ? '+' : ''}${
-             (growthPercentage * 100).toFixed(1)
-           }%`}
-          </div>
-          <p className="text-xs text-muted-foreground">{growthPeriod}</p>
-        </CardContent>
-       </Card>
+        await deleteUser(itemToDeleteId);
+        if (isAdmin) setUsers(await getUsers());
+        
+        // Mensaje personalizado si se dio un motivo
+        if (reason) {
+            toast({ title: "Vendedor eliminado", description: `Motivo: ${reason}` });
+        } else {
+            toast({ title: "Usuario eliminado" });
+        }
+    }
+    setDeleteConfirmOpen(false);
+  };
 
-              {/* Órdenes */}
-       <Card className="border-border bg-card hover:border-accent/50 transition-colors">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-         <CardTitle className="text-sm font-medium">Órdenes</CardTitle>
-         <ShoppingCart className="h-4 w-4 text-accent" />
-        </CardHeader>
-        <CardContent>
-         <div className="text-2xl font-bold text-accent">{orders.length}</div>
-         <p className="text-xs text-muted-foreground">Total de transacciones</p>
-        </CardContent>
-       </Card>
+  const openNewProductModal = () => {
+      setEditingProduct(undefined);
+      setIsProductModalOpen(true);
+  };
 
-      </div>
+  const openEditProductModal = (product: Product) => {
+      setEditingProduct(product);
+      setIsProductModalOpen(true);
+  };
 
-            {/* Acceso Rápido */}
-      <Card className="border-border bg-card">
-       <CardHeader>
-        <CardTitle className="text-accent">Acceso Rápido</CardTitle>
-                <CardDescription>Accede a las funciones principales</CardDescription>
-       </CardHeader>
-       <CardContent className="flex flex-wrap gap-4">
-                {!isSeller && (
-        <Button
-         onClick={() => setActiveSection('users')}
-         className="bg-accent text-accent-foreground hover:bg-accent/90"
-        >
-         <UsersIcon className="mr-2 h-4 w-4" />
-         Gestionar Usuarios
-        </Button>
-                )}
-        <Button 
-         onClick={() => setActiveSection('products')}
-         className="bg-accent text-accent-foreground hover:bg-accent/90"
-        >
-         <Package className="mr-2 h-4 w-4" />
-         Gestionar Productos
-        </Button>
+  const openNewUserModal = () => {
+      setEditingUser(undefined);
+      setIsUserModalOpen(true);
+  };
 
-                <Button 
-                    onClick={() => setActiveSection('orders')}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Ver Órdenes
-                </Button>
+  const openEditUserModal = (user: User) => {
+      setEditingUser(user);
+      setIsUserModalOpen(true);
+  };
 
-                <Button 
-                    onClick={() => window.location.href = '/home'} 
-                    variant="outline" 
-                >
-                    <Store className="mr-2 h-4 w-4" />
-                    Ir A Tienda
-                </Button>
-
-       </CardContent>
-      </Card>
-     </div>
-    );
-
-   case 'users':
-        if (isSeller) return null;
-    return (
-     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-       <div>
-        <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Usuarios</h1>
-        <p className="text-lg text-muted-foreground">Administra y visualiza todos los usuarios</p>
-       </div>
-       <Button
-        onClick={handleNewUser}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
-       >
-        <Plus className="mr-2 h-4 w-4" />
-        Nuevo Usuario
-       </Button>
-       </div>
-      <UserTable users={users} onEdit={handleEdit} onDelete={handleDeleteUser} onView={handleView} />
-     </div>
-    );
-
-   case 'products':
-    return (
-     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-       <div>
-        <h1 className="mb-2 text-4xl font-bold text-accent">Gestión de Productos</h1>
-        <p className="text-lg text-muted-foreground">Administra y visualiza todos los productos</p>
-       </div>
-              
-              {!isSeller && (
-       <Button
-        onClick={handleNewProduct}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
-       >
-        <Plus className="mr-2 h-4 w-4" />
-        Nuevo Producto
-       </Button>
-              )}
-
-       </div>
-      <ProductTable products={products} onEdit={handleEditProduct} onDelete={handleDeleteProduct} onView={handleViewProduct} isAdmin={isAdmin} />
-     </div>
-    );
-
-      case 'orders':
-        return (
-            <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-             <div>
-              <h1 className="mb-2 text-4xl font-bold text-yellow-400">Gestión de Órdenes</h1>
-              <p className="text-lg text-muted-foreground">Administra y visualiza todas las órdenes.</p>
-             </div>
-            </div>
-            <OrderTable orders={orders} onViewDetails={handleViewOrderDetails} />
-           </div>
-        );
-
-   default:
-    return null;
+  if (isLoading) {
+      return <div className="h-screen w-full flex items-center justify-center bg-background text-foreground"><Loader2 className="h-10 w-10 animate-spin text-accent" /></div>;
   }
- };
 
- return (
-  <div className="min-h-screen bg-background">
-   <Sidebar
-    activeSection={activeSection}
-    onSectionChange={setActiveSection}
-    isOpen={sidebarOpen}
-    onClose={() => setSidebarOpen(false)}
-        currentUser={currentUser} 
-   />
-
-   <div className="lg:pl-64">
-    <Header onMenuClick={() => setSidebarOpen(true)} />
-    <main className="p-6">{renderContent()}</main>
-   </div>
-
-   {isAdmin && (
-          <>
-          <UserFormModal
-            isOpen={modalOpen}
-            onClose={() => { setModalOpen(false); setSelectedUser(null); }}
-            user={selectedUser}
-            onSubmit={selectedUser ? handleUpdateUser : handleCreateUser}
-          />
-          {activeSection === 'products' && (
-            <ProductFormModal
-              isOpen={productModalOpen}
-              onClose={() => { setProductModalOpen(false); setSelectedProduct(null); }}
-              product={selectedProduct}
-              onSubmit={handleSubmitProduct}
-            />
-          )}
-          <UserViewModal
-            isOpen={viewModalOpen && activeSection === 'users' && !!selectedUser} 
-            onClose={() => { setViewModalOpen(false); setSelectedUser(null); }}
-            user={selectedUser}
-          />
-          </>
-      )}
-
-      {activeSection === 'products' && (
-          <ProductViewModal
-            isOpen={viewModalOpen && !!selectedProduct}
-            onClose={() => { setViewModalOpen(false); setSelectedProduct(null); }}
-            product={selectedProduct}
-          />
-      )}
-
-      <OrderDetailModal
-        isOpen={viewModalOpen && activeSection === 'orders'}
-        onClose={() => { setViewModalOpen(false); setSelectedOrder(null); }}
-        order={selectedOrder}
+  return (
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        userRole={currentUser?.userType}
+        onLogout={() => { 
+            logout(); 
+            navigate('/login'); 
+        }} 
       />
       
-   <DeleteConfirmDialog
-    isOpen={deleteDialogOpen}
-    onClose={() => { setDeleteDialogOpen(false); setUserToDelete(null); setProductToDelete(null); }}
-    onConfirm={confirmDelete}
-    itemName={userToDelete?.name || productToDelete?.name || ''} 
-   />
-  </div>
- );
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-accent">Panel de Administración</h1>
+            <div className="text-sm text-muted-foreground">Bienvenido, {currentUser?.name}</div>
+        </div>
+
+        {/* Dashboard Stats */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
+                    <span className="text-accent text-2xl font-bold">$</span>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">
+                        ${new Intl.NumberFormat('es-CL').format(orders.reduce((sum, o) => sum + o.finalTotal, 0))}
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <TrendingUp className="h-3 w-3 text-green-500" /> 
+                        {Math.abs(growthRate.percentage * 100).toFixed(1)}% {growthRate.comparisonPeriod}
+                    </p>
+                </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{orders.length}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Productos</CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{products.length}</div>
+                </CardContent>
+            </Card>
+            
+            {isAdmin && (
+                <Card className="bg-card border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Usuarios</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{users.length}</div>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsContent value="products" className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold">Inventario</h2>
+                    <Button onClick={openNewProductModal} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                        Nuevo Producto
+                    </Button>
+                </div>
+                <ProductTable 
+                    products={products} 
+                    isAdmin={isAdmin} 
+                    onEdit={openEditProductModal}
+                    onDelete={(id) => { 
+                        setDeleteItemType('product'); 
+                        setItemToDeleteId(id); 
+                        setIsVendorDeletion(false); // Reset
+                        setDeleteConfirmOpen(true); 
+                    }}
+                    onView={(p) => setSelectedProduct(p)}
+                />
+            </TabsContent>
+
+            {isAdmin && (
+                <TabsContent value="users" className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold">Usuarios</h2>
+                        <Button onClick={openNewUserModal} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                            Nuevo Usuario
+                        </Button>
+                    </div>
+                    <UserTable 
+                        users={users} 
+                        onEdit={openEditUserModal}
+                        onDelete={(id) => { 
+                            setDeleteItemType('user'); 
+                            setItemToDeleteId(id);
+                            // 🟢 Detectamos si es vendedor para mostrar el selector
+                            const userToDelete = users.find(u => u.id === id);
+                            setIsVendorDeletion(userToDelete?.userType === 'Vendedor');
+                            setDeleteConfirmOpen(true); 
+                        }}
+                        onView={(u) => setSelectedUser(u)}
+                    />
+                </TabsContent>
+            )}
+
+            <TabsContent value="orders" className="space-y-4">
+                <h2 className="text-2xl font-bold mb-4">Órdenes de Compra</h2>
+                <OrderTable orders={orders} onView={(o) => setSelectedOrder(o)} />
+            </TabsContent>
+        </Tabs>
+
+        {/* MODALES */}
+        <ProductFormModal 
+            isOpen={isProductModalOpen} 
+            onClose={() => setIsProductModalOpen(false)} 
+            onSubmit={handleSaveProduct} 
+            initialData={editingProduct} 
+        />
+        <UserFormModal 
+            isOpen={isUserModalOpen} 
+            onClose={() => setIsUserModalOpen(false)} 
+            onSubmit={handleSaveUser} 
+            initialData={editingUser} 
+        />
+        <DeleteConfirmDialog 
+            isOpen={deleteConfirmOpen} 
+            onClose={() => setDeleteConfirmOpen(false)} 
+            // 🟢 Pasamos isVendorDeletion al modal para activar el selector
+            showReasonSelect={deleteItemType === 'user' && isVendorDeletion}
+            onConfirm={async (reason) => {
+                if (deleteItemType === 'product') {
+                    await handleDeleteProductConfirm();
+                } else {
+                    await handleDeleteUserConfirm(reason);
+                }
+            }}
+            title={`Eliminar ${deleteItemType === 'product' ? 'Producto' : 'Usuario'}`}
+            description="Esta acción no se puede deshacer."
+        />
+        {selectedProduct && (
+            <ProductViewModal 
+                isOpen={!!selectedProduct} 
+                onClose={() => setSelectedProduct(null)} 
+                product={selectedProduct} 
+            />
+        )}
+        {selectedUser && (
+            <UserViewModal 
+                isOpen={!!selectedUser} 
+                onClose={() => setSelectedUser(null)} 
+                user={selectedUser} 
+            />
+        )}
+        {selectedOrder && (
+            <OrderDetailModal 
+                isOpen={!!selectedOrder} 
+                onClose={() => setSelectedOrder(null)} 
+                order={selectedOrder} 
+            />
+        )}
+      </main>
+    </div>
+  );
 };
 
 export default AdminDashboard;

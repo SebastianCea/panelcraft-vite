@@ -1,59 +1,40 @@
-// src/storage/orderService.ts
+import { pb } from './pocketbase';
 import { Order } from '@/types/order';
-import { demoOrders } from './ordersData'; // Importamos los datos simulados
 
-const STORAGE_KEY = 'levelup_orders';
+const COLLECTION_NAME = 'orders';
 
-// -------------------------------------------------------------------
-// FUNCIONES BÁSICAS DE STORAGE (Lectura/Escritura en localStorage)
-// -------------------------------------------------------------------
-
-
-
-/**
- * Lee todas las órdenes desde localStorage. Si no hay datos, inicializa con los datos demo.
- * @returns Array de todas las órdenes.
- */
-export const getOrders = (): Order[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    
-    // Si no hay datos en localStorage, inicializamos y devolvemos los datos demo
-    if (!data) {
-        saveOrders(demoOrders);
-        return demoOrders;
-    }
-    
+// --- OBTENER TODAS LAS ÓRDENES ---
+export const getOrders = async (): Promise<Order[]> => {
     try {
-        return JSON.parse(data) as Order[];
+        return await pb.collection(COLLECTION_NAME).getFullList<Order>({
+            sort: '-created',
+        });
     } catch (error) {
-        console.error("Error al parsear datos de órdenes:", error);
+        console.error("Error al obtener órdenes:", error);
         return [];
     }
 };
 
-/**
- * Guarda el array completo de órdenes en localStorage.
- * @param orders Array de órdenes a guardar.
- */
-export const saveOrders = (orders: Order[]): void => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+// --- CREAR UNA ORDEN ---
+export const addOrder = async (orderData: Omit<Order, 'id'>): Promise<Order> => {
+    try {
+        const newOrder = await pb.collection(COLLECTION_NAME).create<Order>(orderData);
+        return newOrder;
+    } catch (error) {
+        console.error("Error al crear la orden:", error);
+        throw error;
+    }
 };
 
-
-// -------------------------------------------------------------------
-// LÓGICA DE NEGOCIO Y BÚSQUEDA (Funciones consumidas por los componentes)
-// -------------------------------------------------------------------
-
-/**
- * Filtra las órdenes basándose en un término de búsqueda (ID, RUT, o Courier).
- * @param searchTerm Término a buscar (ej: '12.345.678-9', 'Starken', '00123').
- * @returns Array de órdenes que coinciden con el término.
- */
-export const searchOrders = (searchTerm: string): Order[] => {
+// --- BUSCAR ÓRDENES (Filtro Local) ---
+// PocketBase tiene un sistema de filtros potente, pero para mantener
+// la lógica de tu buscador actual, podemos traer todo y filtrar en el cliente
+// o implementar filtros de servidor más adelante.
+export const searchOrders = async (searchTerm: string): Promise<Order[]> => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return getOrders(); // Si el término está vacío, devuelve todas las órdenes
+    const allOrders = await getOrders();
 
-    const allOrders = getOrders();
+    if (!term) return allOrders;
 
     return allOrders.filter(order => 
         order.id.toLowerCase().includes(term) ||
@@ -63,121 +44,30 @@ export const searchOrders = (searchTerm: string): Order[] => {
     );
 };
 
-/**
- * Filtra las órdenes por estado de pago o estado de envío.
- * @param type 'statePago' o 'statePedido'.
- * @param status Valor del estado (ej: 'Aprobado', 'En camino').
- * @returns Array de órdenes filtradas.
- */
-export const filterOrdersByStatus = (
-    type: 'statePago' | 'statePedido', 
-    status: string
-): Order[] => {
-    const allOrders = getOrders();
-    
-    if (!status) return allOrders;
-
-    return allOrders.filter(order => order[type] === status);
-};
-
-// -------------------------------------------------------------------
-// LÓGICA DE NEGOCIO: Métricas (Si quisieras un contador)
-// -------------------------------------------------------------------
-
-/**
- * Calcula un resumen de cuántas órdenes hay en cada estado de pago.
- * @returns Un objeto con el recuento por estado de pago.
- */
-// Función auxiliar para generar un ID de orden
-function makeOrderId(): string {
-    // ID de 8 dígitos simulado
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
-}
-
-/**
- * Agrega una nueva orden a la lista y la guarda en localStorage.
- * @param newOrder La orden ya construida (sin ID).
- */
-export const addOrder = (orderData: Omit<Order, 'id'>): Order => {
-  const orders = getOrders();
-  
-    // Creamos la orden completa con un ID único
-    const newOrder: Order = {
-        ...orderData,
-        id: makeOrderId(),
-    };
-  
-  // Agregamos la nueva orden al inicio de la lista y guardamos
-  saveOrders([newOrder, ...orders]);
-    
-    return newOrder;
-};
-
-export const getPaymentStatusSummary = () => {
-    const allOrders = getOrders();
-    const summary = {
-        Aprobado: 0,
-        Pendiente: 0,
-        Rechazado: 0,
-    };
-
-    allOrders.forEach(order => {
-        if (order.statePago in summary) {
-            summary[order.statePago as keyof typeof summary] += 1;
-        }
-    });
-
-    return summary;
-};
-
-
-
-
-// src/lib/orderStorage.ts
-
-// ... (tus imports y funciones existentes como getOrders, saveOrders, searchOrders)
-
-// Función auxiliar para obtener el total de ventas (usando finalTotal)
-const calculateTotalSales = (salesData: { total: number; date: Date }[]): number => {
-    // Suma la propiedad 'total' de los objetos que pasas
-    return salesData.reduce((sum, item) => sum + item.total, 0); 
-};
-
-// src/lib/orderStorage.ts
-
-// ... (calculateTotalSales function is correct)
-
-/**
- * Calcula la variación porcentual de ventas (ingresos) entre el mes actual y el mes anterior.
- */
-export const calculateGrowthRate = (): { percentage: number, comparisonPeriod: string } => {
-    const allOrders = getOrders();
+// --- MÉTRICAS SIMPLES ---
+export const calculateGrowthRate = async (): Promise<{ percentage: number, comparisonPeriod: string }> => {
+    // Traemos todas las órdenes para calcular en memoria
+    // (En una app real con miles de ventas, esto se haría con una query de agregación en el backend)
+    const allOrders = await getOrders();
     const now = new Date();
-    
-    // Obtener los índices de mes (0-11) y el año actual
     const currentMonthIndex = now.getMonth(); 
     const currentYear = now.getFullYear();
 
-    // 1. Mapeo y Normalización de Datos
-    const salesData = allOrders.map(order => {
-        const parts = order.date.split('-'); // Suponemos DD-MM-YYYY
-        
-        // 💡 CORRECCIÓN CRÍTICA: La forma más segura de construir una fecha a partir de DD-MM-YYYY.
-        // Usamos el constructor new Date(YYYY, MM - 1, DD)
-        const orderDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-        
-        // Aseguramos que la fecha sea comparada sin la hora del día, lo cual a veces causa problemas.
-        // Aunque el problema de fondo es que tu demoOrders tiene pocos datos por mes.
+    // Helper para sumar totales
+    const calculateTotalSales = (orders: Order[]) => orders.reduce((sum, item) => sum + item.finalTotal, 0);
 
+    const salesData = allOrders.map(order => {
+        // Manejo robusto de fecha (si viene de PB es YYYY-MM-DD HH:mm:ss, si es local DD-MM-YYYY)
+        let orderDate = new Date(order.created || order.date); 
+        if (isNaN(orderDate.getTime())) {
+             // Fallback para formato manual antiguo
+             const parts = order.date.split('-'); 
+             orderDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
         return { total: order.finalTotal, date: orderDate };
     });
 
-    // 2. Definir los períodos de comparación usando la capacidad de JS para ajustar fechas
-
-    // Período Actual (El mes que estamos viviendo ahora)
     const lastPeriodDate = new Date(currentYear, currentMonthIndex);
-    
-    // Período Anterior (JS maneja el cambio de año automáticamente, ej: new Date(2025, -1) -> Dec 2024)
     const prevPeriodDate = new Date(currentYear, currentMonthIndex - 1); 
 
     const salesLastPeriod = salesData.filter(item => 
@@ -185,22 +75,18 @@ export const calculateGrowthRate = (): { percentage: number, comparisonPeriod: s
     );
     
     const salesPrevPeriod = salesData.filter(item => 
-    item.date.getMonth() === prevPeriodDate.getMonth() && item.date.getFullYear() === prevPeriodDate.getFullYear()
+        item.date.getMonth() === prevPeriodDate.getMonth() && item.date.getFullYear() === prevPeriodDate.getFullYear()
     );
 
-    // 3. Sumar totales
-    const totalLastPeriod = calculateTotalSales(salesLastPeriod);
-    const totalPrevPeriod = calculateTotalSales(salesPrevPeriod);
+    const totalLastPeriod = calculateTotalSales(salesLastPeriod as any);
+    const totalPrevPeriod = calculateTotalSales(salesPrevPeriod as any);
 
-    // 4. Calcular la variación
     if (totalPrevPeriod === 0) {
         const percentage = totalLastPeriod > 0 ? 1 : 0;
         return { percentage, comparisonPeriod: 'vs mes anterior' };
     }
 
     const growth = (totalLastPeriod - totalPrevPeriod) / totalPrevPeriod;
-
-    // Obtener la abreviación del mes anterior para el texto
     const monthName = prevPeriodDate.toLocaleDateString('es-CL', { month: 'short' });
 
     return { percentage: growth, comparisonPeriod: `vs ${monthName}` };

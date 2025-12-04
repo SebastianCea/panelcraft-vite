@@ -1,68 +1,77 @@
-import { User } from "@/types/user";
-import { LoginFormData } from "../validations/auth";
-import { getUsers } from "../userStorage";
+import { User, LoginCredentials, AuthResponse } from '@/types/user';
+import { pb } from '@/lib/pocketbase'; // Asegúrate de importar la instancia de pocketbase
 
+const CURRENT_USER_KEY = 'levelup_current_user';
 
-// Dominios permitidos para acceder al panel de administración
-const ADMIN_ACCESS_DOMAINS = [
-    'levelup.admin.cl', 
-    'levelup.seller.cl'
-];
+export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  try {
+    // 🟢 USAR AUTENTICACIÓN NATIVA DE POCKETBASE
+    const authData = await pb.collection('users').authWithPassword(
+      credentials.email,
+      credentials.password
+    );
 
-// Clave para guardar la sesión en el navegador
-const SESSION_KEY = 'levelup_session';
+    if (authData && authData.record) {
+      // PocketBase devuelve el registro del usuario en authData.record
+      // Mapeamos los campos de PocketBase a nuestra interfaz User si es necesario
+      // O simplemente usamos el record si coincide.
+      // Asegúrate de que tu interfaz User coincida con lo que devuelve PB o haz un cast.
+      const user = authData.record as unknown as User; 
 
-/**
- * Autentica al usuario y verifica credenciales.
- */
-export const authenticateUser = ({ email, password }: LoginFormData): User => {
-    const normalizedEmail = email.toLowerCase().trim();
-    const users = getUsers();
-    const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+      // Guardar sesión local (opcional si usas pb.authStore, pero mantenemos tu lógica)
+      updateLocalSession(user);
 
-    if (!user) throw new Error("Credenciales incorrectas. El usuario no existe.");
-    if (user.password !== password) throw new Error("Credenciales incorrectas. Contraseña inválida.");
-
-    return user;
-};
-
-/**
- * 🟢 NUEVO: Inicia sesión y guarda el usuario en localStorage
- */
-export const login = (user: User): void => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    // Disparar un evento para que el Header se actualice automáticamente
-    window.dispatchEvent(new Event('authChange'));
-};
-
-/**
- * 🟢 NUEVO: Cierra sesión
- */
-export const logout = (): void => {
-    localStorage.removeItem(SESSION_KEY);
-    window.dispatchEvent(new Event('authChange'));
-};
-
-/**
- * 🟢 NUEVO: Obtiene el usuario conectado actualmente
- */
-export const getCurrentUser = (): User | null => {
-    const data = localStorage.getItem(SESSION_KEY);
-    if (!data) return null;
-    try {
-        return JSON.parse(data) as User;
-    } catch {
-        return null;
+      return {
+        success: true,
+        user: user,
+      };
     }
+
+    return {
+      success: false,
+      message: 'Credenciales inválidas',
+    };
+
+  } catch (error) {
+    console.error("Error en login:", error);
+    // PocketBase lanza un error 400 si las credenciales son malas
+    const errorMessage = (error as any)?.data?.message || 'Error al intentar iniciar sesión. Verifica tus credenciales.';
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
 };
 
-/**
- * 🟢 NUEVO: Verifica si el usuario actual tiene acceso al panel
- */
-export const hasAdminAccess = (): boolean => {
-    const user = getCurrentUser();
-    if (!user) return false;
+// 🟢 ALIAS RESTAURADO
+export const authenticateUser = login;
+
+// 🟢 NUEVA FUNCIÓN: Actualiza la sesión local sin requerir password
+export const updateLocalSession = (user: User) => {
+    const sessionUser = { ...user };
     
-    const domain = user.email.split('@')[1]?.toLowerCase();
-    return ADMIN_ACCESS_DOMAINS.includes(domain) && user.userType !== 'Cliente';
+    if (sessionUser.password) {
+        delete sessionUser.password; 
+    }
+    
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
+    // También es buena práctica mantener el authStore de PB actualizado si lo usas en otros lados
+    // pb.authStore.save(token, user); 
+    window.dispatchEvent(new Event('authChange'));
+};
+
+export const logout = () => {
+  pb.authStore.clear(); // Limpiar sesión de PocketBase
+  localStorage.removeItem(CURRENT_USER_KEY);
+  window.dispatchEvent(new Event('authChange'));
+};
+
+export const getCurrentUser = (): User | null => {
+  const data = localStorage.getItem(CURRENT_USER_KEY);
+  return data ? JSON.parse(data) : null;
+};
+
+export const hasAdminAccess = (): boolean => {
+  const user = getCurrentUser();
+  return user?.userType === 'Administrador' || user?.userType === 'Vendedor';
 };

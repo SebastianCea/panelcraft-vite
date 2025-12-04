@@ -1,39 +1,44 @@
 export interface OrderItem {
-name: string;
-quantity: number;
-subTotal: number;  
-discountPercentage: number;
-total: number;   
+  name: string;
+  quantity: number;
+  subTotal: number;  
+  discountPercentage: number;
+  total: number;   
 }
 
-
 export interface Order { 
-id: string;
-rutCliente: string; 
-date: string; 
+  // Campos de sistema de PocketBase (Opcionales al crear, obligatorios al leer)
+  id: string;
+  collectionId?: string;
+  collectionName?: string;
+  created?: string; // 🟢 Este es el campo que te estaba dando error
+  updated?: string;
 
-// Detalle de productos
-items: OrderItem[]; 
+  rutCliente: string; 
+  date: string; // Mantenemos tu campo fecha manual por compatibilidad
 
-total: number; // Total de los productos (globalSubtotal)
+  // Detalle de productos
+  items: OrderItem[]; 
 
-// CAMPOS DE PAGO Y ENVÍO
-paymentId: string; 
-paymentMethod: 'webpay'|'bancoestado'|'transferencia'; // Usamos los mismos valores que en Zod
-statePago: 'Pendiente'|'Aprobado'|'Rechazado';
+  total: number; // Total de los productos (globalSubtotal)
 
-// CAMPOS DE ENTREGA (Nuevos campos del checkout, pueden ser opcionales)
-Courier: 'retiro en tienda'|'envio'; // Usamos los valores de Zod
-   addressDetail?: string; // Calle y número (si es envío)
-   region?: string; // Región (si es envío)
-   commune?: string; // Comuna (si es envío)
-   branchOffice?: string; // Sucursal (si es retiro)
+  // CAMPOS DE PAGO Y ENVÍO
+  paymentId: string; 
+  paymentMethod: 'webpay'|'bancoestado'|'transferencia'; 
+  statePago: 'Pendiente'|'Aprobado'|'Rechazado';
 
-Tracking: string; 
-statePedido: 'En preparación'|'Enviado'|'En camino'|'Recibido';
+  // CAMPOS DE ENTREGA
+  Courier: 'retiro en tienda'|'envio'; 
+  addressDetail?: string; 
+  region?: string; 
+  commune?: string; 
+  branchOffice?: string; 
 
- // CAMPOS DE TOTALES
- globalSubtotal: number; 
- globalDiscount: number; 
- finalTotal: number; 
+  Tracking: string; 
+  statePedido: 'En preparación'|'Enviado'|'En camino'|'Recibido';
+
+  // CAMPOS DE TOTALES
+  globalSubtotal: number; 
+  globalDiscount: number; 
+  finalTotal: number; 
 }

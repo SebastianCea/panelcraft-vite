@@ -7,18 +7,37 @@ import { ProductReviews } from '@/components/public/ProductReviews';
 import { Button } from '@/components/ui/button';
 import { addToCart } from '@/lib/cartStorage';
 import { toast } from 'sonner';
-import { ShoppingCart, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Loader2, Plus, Minus } from 'lucide-react'; // Importar iconos nuevos
+import { Input } from '@/components/ui/input'; // Importar Input
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const [product, setProduct] = useState<Product | undefined>(undefined);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [quantity, setQuantity] = useState(1); // 🟢 Estado para cantidad
 
   useEffect(() => {
-    if (id) {
-      const found = getProductById(id);
-      setProduct(found);
-    }
+    const fetchProduct = async () => {
+      if (id) {
+        setIsLoading(true);
+        const found = await getProductById(id);
+        setProduct(found);
+        setIsLoading(false);
+      }
+    };
+    fetchProduct();
   }, [id]);
+
+  if (isLoading) {
+    return (
+        <div className="min-h-screen bg-background text-foreground">
+            <PublicHeader />
+            <div className="container py-20 flex justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-accent" />
+            </div>
+        </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -33,9 +52,18 @@ const ProductDetail = () => {
   }
 
   const handleAddToCart = () => {
-    addToCart({ product, quantity: 1 });
-    toast.success(`${product.name} agregado al carrito`);
+    addToCart({ product, quantity });
+    toast.success(`${quantity} x ${product.name} agregado al carrito`);
     window.dispatchEvent(new Event('cartUpdated'));
+    setQuantity(1);
+  };
+
+  const handleIncrement = () => {
+    if (quantity < product.stock) setQuantity(q => q + 1);
+  };
+
+  const handleDecrement = () => {
+    if (quantity > 1) setQuantity(q => q - 1);
   };
 
   const formatPrice = (price: number) => {
@@ -53,9 +81,9 @@ const ProductDetail = () => {
 
         <div className="grid md:grid-cols-2 gap-10">
             {/* Imagen */}
-            <div className="bg-card rounded-xl overflow-hidden border border-border shadow-lg">
+            <div className="bg-card rounded-xl overflow-hidden border border-border shadow-lg aspect-square relative">
                 <img 
-                    src={product.image} 
+                    src={product.image || '/placeholder.svg'} 
                     alt={product.name} 
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                 />
@@ -78,7 +106,7 @@ const ProductDetail = () => {
                     {formatPrice(product.price)}
                 </div>
 
-                {/* Stock y Botón */}
+                {/* Stock y Botones */}
                 <div className="border-t border-border pt-6 space-y-4">
                      <p className="flex items-center gap-2">
                         <span className={product.stock > 0 ? "text-green-400" : "text-red-400"}>
@@ -89,19 +117,40 @@ const ProductDetail = () => {
                         </span>
                      </p>
 
+                     {/* 🟢 Selector de Cantidad en Detalle */}
+                     {product.stock > 0 && (
+                        <div className="flex items-center gap-4 mb-4">
+                            <span className="text-sm font-medium">Cantidad:</span>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={handleDecrement} disabled={quantity <= 1}>
+                                    <Minus className="h-4 w-4" />
+                                </Button>
+                                <Input 
+                                    type="number" 
+                                    value={quantity} 
+                                    onChange={(e) => setQuantity(Math.max(1, Math.min(product.stock, parseInt(e.target.value) || 1)))}
+                                    className="w-16 text-center h-10"
+                                />
+                                <Button variant="outline" size="icon" onClick={handleIncrement} disabled={quantity >= product.stock}>
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                     )}
+
                      <Button 
                         onClick={handleAddToCart}
                         disabled={product.stock === 0}
-                        className="w-full md:w-auto bg-accent text-accent-foreground hover:bg-accent/90 text-lg px-8 py-6"
+                        className="w-full md:w-auto bg-accent text-accent-foreground hover:bg-accent/90 text-lg px-8 py-6 flex items-center justify-center gap-2"
                      >
-                        <ShoppingCart className="mr-2 h-6 w-6" />
-                        Agregar al Carrito
+                        {/* 🟢 Solo el ícono del carrito, o texto "Agotado" si no hay stock */}
+                        {product.stock === 0 ? 'Agotado' : <ShoppingCart className="h-6 w-6" />}
+                        {product.stock > 0 && <span>Agregar al Carrito</span>}
                      </Button>
                 </div>
             </div>
         </div>
 
-        {/* 🟢 SECCIÓN DE RESEÑAS INTEGRADA */}
         <ProductReviews productId={product.id} />
 
       </div>

@@ -24,16 +24,16 @@ const Cart = () => {
 
  useEffect(() => {
   loadCart();
+  // Cargar usuario al montar
   const user = getCurrentUser();
   setCurrentUser(user);
-
-  // 🟢 Listener de sincronización para actualizar descuento
+  
+  // Escuchar cambios de autenticación para actualizar el usuario si cambia (login/logout)
   const handleAuthChange = () => {
       setCurrentUser(getCurrentUser());
   };
   window.addEventListener('authChange', handleAuthChange);
   return () => window.removeEventListener('authChange', handleAuthChange);
-
  }, []);
 
  const loadCart = () => {
@@ -75,7 +75,8 @@ const Cart = () => {
  const discountValue = Math.round(subTotal * (userDiscountRate / 100));
  const finalTotal = subTotal - discountValue;
 
- const handleConfirmCheckout = (data: GuestCheckoutFormData) => {
+ const handleConfirmCheckout = async (data: GuestCheckoutFormData) => {
+  
   const currentCartItems = getCart();
   
   if (currentCartItems.length === 0) {
@@ -87,37 +88,40 @@ const Cart = () => {
         name: item.product.name,
         quantity: item.quantity,
         subTotal: item.product.price * item.quantity, 
-        discountPercentage: userDiscountRate / 100, // Guardamos el % aplicado
+        discountPercentage: userDiscountRate / 100, 
         total: Math.round((item.product.price * item.quantity) * (1 - (userDiscountRate/100))),
     }));
     
+    // 🟢 CONSTRUCCIÓN ROBUSTA DE LA ORDEN
     const newOrder: Omit<Order, 'id'> = {
         rutCliente: data.rut, 
-        date: new Date().toLocaleDateString('es-CL'),
+        // 🟢 FIX: Usamos formato ISO para evitar problemas con campos de tipo Date en PocketBase
+        date: new Date().toISOString(), 
         items: orderItems,
         total: subTotal, 
         Courier: data.courier as Order['Courier'], 
         paymentMethod: data.paymentMethod as Order['paymentMethod'],
-        addressDetail: data.addressDetail, 
-        region: data.region, 
-        commune: data.commune, 
-        branchOffice: data.branchOffice, 
+        addressDetail: data.addressDetail || "", // Fallback para evitar undefined
+        region: data.region || "", 
+        commune: data.commune || "", 
+        branchOffice: data.branchOffice || "", 
         paymentId: 'PAY-' + Date.now().toString().slice(-6), 
         statePago: 'Pendiente', 
         Tracking: 'PENDIENTE', 
         statePedido: 'En preparación',
-        
         globalSubtotal: subTotal, 
-        globalDiscount: discountValue, // 🟢 Guardamos el descuento total
-        finalTotal: finalTotal, // 🟢 Total final a pagar
+        globalDiscount: discountValue, 
+        finalTotal: finalTotal, 
     };
     
     try {
-        currentCartItems.forEach(item => {
-            updateStock(item.product.id, item.quantity);
-        });
+        // 1. Actualizar Stock
+        for (const item of currentCartItems) {
+            await updateStock(item.product.id, item.quantity);
+        }
 
-        const savedOrder = addOrder(newOrder); 
+        // 2. Crear Orden
+        const savedOrder = await addOrder(newOrder); 
         toast.success(`🎉 ¡Pedido N° ${savedOrder.id} generado! Descuento aplicado.`);
         
         clearCart();
@@ -125,14 +129,26 @@ const Cart = () => {
         setIsGuestModalOpen(false);
         window.dispatchEvent(new Event('cartUpdated'));
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error al guardar la orden:", error);
-        toast.error('Ocurrió un error al procesar el pedido.');
+        
+        // 🟢 MEJORA DE ERROR: Extraer el mensaje específico de validación de PocketBase
+        // PocketBase devuelve detalles de qué campo falló en error.response.data
+        const fieldErrors = error?.response?.data || {};
+        const firstErrorKey = Object.keys(fieldErrors)[0];
+        
+        let msg = error?.message || 'Error desconocido';
+        if (firstErrorKey) {
+            msg = `Campo '${firstErrorKey}': ${fieldErrors[firstErrorKey].message}`;
+        }
+
+        toast.error(`Error al procesar: ${msg}`);
     }
  };
 
  const handleProceedToPayment = () => {
-  setIsGuestModalOpen(true);
+    // Abrimos el modal. Si hay currentUser, se pasará como initialData en el renderizado
+    setIsGuestModalOpen(true);
  };
 
  const formatPrice = (price: number) => {
@@ -152,7 +168,9 @@ const Cart = () => {
       <CardContent className="p-12 text-center">
        <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
        <h2 className="mb-2 text-2xl font-bold">Tu carrito está vacío</h2>
-       <p className="text-muted-foreground mb-6">Agrega productos para comenzar tu compra</p>
+       <p className="text-muted-foreground mb-6">
+        Agrega productos para comenzar tu compra
+       </p>
        <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
         <Link to="/categorias">Explorar Productos</Link>
        </Button>
@@ -166,14 +184,22 @@ const Cart = () => {
  return (
   <div className="min-h-screen bg-background">
    <PublicHeader />
+
    <div className="container mx-auto px-4 py-8">
     <div className="mb-8 flex items-center justify-between">
      <div>
       <h1 className="mb-2 text-4xl font-bold text-accent">Carrito de Compras</h1>
-      <p className="text-muted-foreground">{cartItems.length} producto{cartItems.length !== 1 ? 's' : ''} en tu carrito</p>
+      <p className="text-muted-foreground">
+       {cartItems.length} producto{cartItems.length !== 1 ? 's' : ''} en tu carrito
+      </p>
      </div>
-     <Button variant="outline" onClick={handleClearCart} className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
-      <Trash2 className="mr-2 h-4 w-4" /> Vaciar Carrito
+     <Button
+      variant="outline"
+      onClick={handleClearCart}
+      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+     >
+      <Trash2 className="mr-2 h-4 w-4" />
+      Vaciar Carrito
      </Button>
     </div>
 
@@ -183,27 +209,59 @@ const Cart = () => {
        <Card key={item.product.id} className="border-border bg-card">
         <CardContent className="p-4">
          <div className="flex gap-4">
-          <img src={item.product.image} alt={item.product.name} className="h-24 w-24 rounded-lg object-cover" />
+          <img
+           src={item.product.image}
+           alt={item.product.name}
+           className="h-24 w-24 rounded-lg object-cover"
+          />
           <div className="flex-1">
            <h3 className="mb-1 text-lg font-semibold">{item.product.name}</h3>
-           <p className="text-xl font-bold text-accent">{formatPrice(item.product.price)}</p>
+           <p className="text-xl font-bold text-accent">
+            {formatPrice(item.product.price)}
+           </p>
            <div className="mt-3 flex items-center gap-3">
             <div className="flex items-center gap-2">
-             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1, item.product.name, item.product.stock)} disabled={item.quantity <= 1}>
+             <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1, item.product.name, item.product.stock)}
+              disabled={item.quantity <= 1}
+             >
               <Minus className="h-4 w-4" />
              </Button>
-             <Input type="number" min="1" value={item.quantity} onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value) || 1, item.product.name, item.product.stock)} className="w-16 text-center" />
-             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1, item.product.name, item.product.stock)} disabled={item.quantity >= item.product.stock}>
+             <Input
+              type="number"
+              min="1"
+              value={item.quantity}
+              onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value) || 1, item.product.name, item.product.stock)}
+              className="w-16 text-center"
+             />
+             <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1, item.product.name, item.product.stock)}
+              disabled={item.quantity >= item.product.stock}
+             >
               <Plus className="h-4 w-4" />
              </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => handleRemove(item.product.id, item.product.name)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-             <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+            <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => handleRemove(item.product.id, item.product.name)}
+             className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+             <Trash2 className="mr-2 h-4 w-4" />
+             Eliminar
             </Button>
            </div>
           </div>
           <div className="text-right">
-           <p className="text-lg font-bold">{formatPrice(item.product.price * item.quantity)}</p>
+           <p className="text-lg font-bold">
+            {formatPrice(item.product.price * item.quantity)}
+           </p>
           </div>
          </div>
         </CardContent>
@@ -215,11 +273,16 @@ const Cart = () => {
       <Card className="sticky top-20 border-border bg-card">
        <CardContent className="p-6">
         <h2 className="mb-4 text-2xl font-bold text-accent">Resumen del Pedido</h2>
+        
         <div className="space-y-3 border-b border-border pb-4">
          {cartItems.map((item) => (
           <div key={item.product.id} className="flex justify-between text-sm">
-           <span className="text-muted-foreground">{item.product.name} x{item.quantity}</span>
-           <span className="font-medium">{formatPrice(item.product.price * item.quantity)}</span>
+           <span className="text-muted-foreground">
+            {item.product.name} x{item.quantity}
+           </span>
+           <span className="font-medium">
+            {formatPrice(item.product.price * item.quantity)}
+           </span>
           </div>
          ))}
         </div>
@@ -230,10 +293,11 @@ const Cart = () => {
           <span className="font-medium">{formatPrice(subTotal)}</span>
          </div>
 
-         {/* 🟢 Descuento Duoc */}
          {userDiscountRate > 0 && (
              <div className="flex justify-between text-green-500">
-              <span className="flex items-center gap-1">Desc. DuocUC ({userDiscountRate}%)</span>
+              <span className="flex items-center gap-1">
+                Desc. DuocUC ({userDiscountRate}%)
+              </span>
               <span className="font-medium">- {formatPrice(discountValue)}</span>
              </div>
          )}
@@ -249,17 +313,32 @@ const Cart = () => {
          <span className="text-2xl font-bold text-accent">{formatPrice(finalTotal)}</span>
         </div>
 
-        <Button className="mt-6 w-full bg-accent text-accent-foreground hover:bg-accent/90" size="lg" onClick={handleProceedToPayment}>
+        <Button
+         className="mt-6 w-full bg-accent text-accent-foreground hover:bg-accent/90"
+         size="lg"
+         onClick={handleProceedToPayment}
+        >
          Proceder al Pago
         </Button>
 
-        <Button variant="outline" className="mt-3 w-full" asChild>
+        <Button
+         variant="outline"
+         className="mt-3 w-full"
+         asChild
+        >
          <Link to="/categorias">Seguir Comprando</Link>
         </Button>
         
-        <div className='text-center mt-4 text-sm'>
-         <p className='text-muted-foreground'>¿Ya tienes cuenta? <Link to="/login" className="text-accent hover:underline ml-1">Inicia Sesión</Link></p>
-        </div>
+        {!currentUser && (
+            <div className='text-center mt-4 text-sm'>
+                <p className='text-muted-foreground'>
+                ¿Ya tienes cuenta? 
+                <Link to="/login" className="text-accent hover:underline ml-1">
+                Inicia Sesión
+                </Link>
+                </p>
+            </div>
+        )}
        </CardContent>
       </Card>
      </div>
@@ -268,15 +347,18 @@ const Cart = () => {
 
    <footer className="mt-16 border-t border-border bg-card py-8">
     <div className="container mx-auto px-4 text-center">
-     <p className="text-muted-foreground">© 2025 Level-Up⚡ Gamer. Todos los derechos reservados.</p>
+     <p className="text-muted-foreground">
+      © 2025 Level-Up⚡ Gamer. Todos los derechos reservados.
+     </p>
     </div>
    </footer>
    
-   <GuestCheckoutModal 
-      isOpen={isGuestModalOpen} 
-      onClose={() => setIsGuestModalOpen(false)} 
-      onConfirm={handleConfirmCheckout}
-      currentUser={currentUser} 
+   {/* 🟢 Pasamos currentUser como initialData */}
+   <GuestCheckoutModal
+    isOpen={isGuestModalOpen}
+    onClose={() => setIsGuestModalOpen(false)}
+    onConfirm={handleConfirmCheckout}
+    initialData={currentUser} 
    />
   </div>
  );

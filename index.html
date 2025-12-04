@@ -1,31 +1,37 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link
-      href="https://fonts.googleapis.com/css2?family=Orbitron&family=Roboto&display=swap"
-      rel="stylesheet"
-    />
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/placeholder.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Título y Metadatos SEO -->
   <title>Level-Up⚡ Gamer | Tu Tienda Gaming Online</title>
   <meta name="description" content="Level-Up Gamer - La mejor tienda online de productos gaming. Consolas, accesorios, juegos de mesa y más al mejor precio." />
   <meta name="author" content="Level-Up Gamer" />
 
+  <!-- Fuentes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron&family=Roboto&display=swap" rel="stylesheet" />
+
+  <!-- Metadatos Redes Sociales (Open Graph / Twitter) -->
   <meta property="og:title" content="Level-Up⚡ Gamer | Tu Tienda Gaming Online" />
   <meta property="og:description" content="Todo lo que necesitas para tu setup gamer al mejor precio" />
   <meta property="og:type" content="website" />
-    <meta property="og:image" content="/img/levelup-og-image" /> 
+  <meta property="og:image" content="/img/levelup-og-image" /> 
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@levelupgamer" /> 
-    <meta name="twitter:image" content="/img/levelup-og-image" />
- 
- </head>
+  <meta name="twitter:image" content="/img/levelup-og-image" />
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- 🟢 SOLUCIÓN ERROR POCKETBASE: Definir global -->
+  <script>
+    window.global = window;
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
 </html>

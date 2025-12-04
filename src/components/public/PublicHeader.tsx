@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ShoppingCart, User, LogIn, LogOut, UserCircle } from 'lucide-react'; // 🟢 UserCircle añadido
+import { Link, useLocation, useNavigate } from 'react-router-dom'; // 🟢 Importamos useNavigate
+import { Menu, X, ShoppingCart, User, LogIn, LogOut, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCartCount } from '@/lib/cartStorage';
@@ -10,11 +10,11 @@ import { cn } from '@/lib/utils';
 export const PublicHeader = () => {
  const [isOpen, setIsOpen] = useState(false);
  const [cartCount, setCartCount] = useState(0);
-  const [user, setUser] = useState(getCurrentUser());
-  const [canAccessAdmin, setCanAccessAdmin] = useState(hasAdminAccess());
+ const [user, setUser] = useState(getCurrentUser());
+ const [canAccessAdmin, setCanAccessAdmin] = useState(hasAdminAccess());
   
  const location = useLocation();
-  const navigate = useNavigate();
+ const navigate = useNavigate(); // 🟢 Hook para navegación
   
   const neonStyle = {
       boxShadow: '0 0 5px #FFFF00, 0 0 10px #FFD700, 0 0 20px rgba(255, 255, 0, 0.3)',
@@ -43,9 +43,10 @@ export const PublicHeader = () => {
   setCartCount(getCartCount());
  };
   
+  // 🟢 Función modificada para cerrar sesión y redirigir al Home
   const handleLogout = () => {
       logout();
-      navigate('/login');
+      navigate('/'); // Redirige a la página principal (FrontPage)
   };
 
  const navItems = [
@@ -89,12 +90,11 @@ export const PublicHeader = () => {
        </Button>
       </Link>
 
-            {/* 🟢 BOTONES DE USUARIO ACTUALIZADOS */}
+            {/* BOTONES DE USUARIO */}
             {user ? (
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground hidden lg:inline">Hola, {user.name.split(' ')[0]}</span>
                     
-                    {/* 🟢 Botón Perfil */}
                     <Link to="/perfil" title="Mi Perfil">
                         <Button variant="ghost" size="icon" className="text-accent hover:text-accent hover:bg-accent/10">
                             <UserCircle className="h-5 w-5" />
@@ -110,6 +110,7 @@ export const PublicHeader = () => {
                         </Link>
                     )}
                     
+                    {/* 🟢 Usamos handleLogout aquí */}
                     <Button variant="ghost" size="icon" onClick={handleLogout} title="Cerrar Sesión">
                         <LogOut className="h-5 w-5 text-destructive" />
                     </Button>
@@ -153,7 +154,6 @@ export const PublicHeader = () => {
                 
                 {user ? (
                     <>
-                        {/* 🟢 Enlace Perfil Mobile */}
                         <Link to="/perfil" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2 text-lg font-medium text-accent hover:bg-accent/10 rounded-lg">
                             <UserCircle className="h-5 w-5" /> Mi Perfil
                         </Link>
@@ -163,6 +163,7 @@ export const PublicHeader = () => {
                                 <User className="h-5 w-5" /> Panel Admin
                             </Link>
                         )}
+                        {/* 🟢 Usamos handleLogout aquí también */}
                         <button onClick={() => { handleLogout(); setIsOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2 text-lg font-medium text-destructive hover:bg-destructive/10 rounded-lg">
                             <LogOut className="h-5 w-5" /> Cerrar Sesión
                         </button>

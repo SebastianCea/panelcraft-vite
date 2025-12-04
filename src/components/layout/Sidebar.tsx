@@ -1,96 +1,86 @@
-import { cn } from '@/lib/utils';
-import { Home, Users, Package, ShoppingCart, Store, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Link, useNavigate } from 'react-router-dom';
-import { logout } from '../../lib/service/authenticateUser'; 
-import { User } from '@/types/user';
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Package, ShoppingCart, Users, LogOut, Store } from "lucide-react"; 
+import { Link, useNavigate } from "react-router-dom"; // 🟢 Importamos useNavigate
 
-interface SidebarProps {
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-  isOpen: boolean;
-  onClose: () => void;
-  currentUser: User | null; 
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  onLogout: () => void;
+  userRole?: string; 
 }
 
-export const Sidebar = ({ activeSection, onSectionChange, isOpen, onClose, currentUser }: SidebarProps) => {
-  const navigate = useNavigate();
-  const isSeller = currentUser?.userType === 'Vendedor'; 
+export function Sidebar({ className, activeTab, setActiveTab, onLogout, userRole }: SidebarProps) {
+  const navigate = useNavigate(); // 🟢 Hook para navegación
 
   const handleLogout = () => {
-      logout();
-      navigate('/login');
+      onLogout(); // Ejecuta la lógica de limpieza de sesión (que viene del padre)
+      navigate('/'); // 🟢 Redirige al Home (FrontPage) en lugar de login
   };
 
-  const menuItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    // 💡 RESTRICCIÓN ROL: OCULTAR SI ES VENDEDOR
-    ...(!isSeller ? [{ id: 'users', label: 'Usuarios', icon: Users }] : []),
-    { id: 'products', label: 'Productos', icon: Package },
-    { id: 'orders', label: 'Órdenes', icon: ShoppingCart },
-  ];
-
   return (
-    <>
-      {/* Overlay for mobile */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 transform border-r border-border bg-card transition-transform duration-200 ease-in-out lg:translate-x-0",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <span className="text-2xl font-bold text-accent">⚡ LEVEL-UP</span>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onClose}>
-             <span className="sr-only">Cerrar</span>
-          </Button>
-        </div>
-
-        <div className="flex flex-col h-[calc(100%-4rem)] justify-between p-4">
-          <nav className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onSectionChange(item.id);
-                    onClose();
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors",
-                    activeSection === item.id
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
-                  )}
+    <div className={cn("pb-12 w-64 border-r bg-card hidden md:block", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Administración
+          </h2>
+          <div className="space-y-1">
+            <Button 
+                variant={activeTab === "products" ? "secondary" : "ghost"} 
+                className="w-full justify-start"
+                onClick={() => setActiveTab("products")}
+            >
+              <Package className="mr-2 h-4 w-4" />
+              Inventario
+            </Button>
+            
+            {userRole === 'Administrador' && (
+                <Button 
+                    variant={activeTab === "users" ? "secondary" : "ghost"} 
+                    className="w-full justify-start"
+                    onClick={() => setActiveTab("users")}
                 >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Botón Ir a Tienda siempre en la parte inferior */}
-          <div className="space-y-2">
-            <Link to="/">
-                <Button variant="outline" className="w-full justify-start gap-3 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
-                    <Store className="h-5 w-5" />
-                    Ir A Tienda
+                <Users className="mr-2 h-4 w-4" />
+                Usuarios
                 </Button>
-            </Link>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10" onClick={handleLogout}>
-                <LogOut className="h-5 w-5" />
-                Cerrar Sesión
+            )}
+
+            <Button 
+                variant={activeTab === "orders" ? "secondary" : "ghost"} 
+                className="w-full justify-start"
+                onClick={() => setActiveTab("orders")}
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Órdenes
             </Button>
           </div>
         </div>
-      </aside>
-    </>
+
+        <div className="px-3 py-2">
+            <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+                Navegación
+            </h2>
+            <div className="space-y-1">
+                <Button variant="ghost" className="w-full justify-start" asChild>
+                    <Link to="/home">
+                        <Store className="mr-2 h-4 w-4" />
+                        Ir a la Tienda
+                    </Link>
+                </Button>
+            </div>
+        </div>
+
+        <div className="px-3 py-2 mt-auto">
+            <div className="space-y-1">
+                {/* 🟢 Usamos handleLogout aquí */}
+                <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100/10" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Cerrar Sesión
+                </Button>
+            </div>
+        </div>
+      </div>
+    </div>
   );
-};
+}

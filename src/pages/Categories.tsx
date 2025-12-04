@@ -1,105 +1,101 @@
-import { useState, useEffect } from 'react'; // 💡 Importar useEffectimport { PublicHeader } from '@/components/public/PublicHeader';
-import { Product } from '@/types/product'; // 💡 Importar el tipo Product
-import { ProductCard } from '@/components/public/ProductCard';
-import { getProducts } from '@/lib/productStorage';
-//import { demoProductsList } from '@/lib/productsData';
-import { Button } from '@/components/ui/button';
-import { Gamepad2, Monitor, Headphones, Dice5, Shirt } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PublicHeader } from '@/components/public/PublicHeader';
-
-const categories = [
-  { id: 'all', name: 'Todos', icon: Gamepad2 },
-  { id: 'consolas', name: 'Consolas', icon: Gamepad2 },
-  { id: 'computadores', name: 'Computadores', icon: Monitor },
-  { id: 'accesorios', name: 'Accesorios', icon: Headphones },
-  { id: 'juegos-mesa', name: 'Juegos de Mesa', icon: Dice5 },
-  { id: 'ropa', name: 'Ropa', icon: Shirt },
-];
+import { ProductCard } from '@/components/public/ProductCard';
+import { Button } from '@/components/ui/button';
+import { getProducts } from '@/lib/productStorage';
+import { Product } from '@/types/product';
+import { Gamepad2, Laptop, Tv, Package, Shirt, Dice5 } from 'lucide-react';
 
 const Categories = () => {
-  const [activeCategory, setActiveCategory] = useState('all');
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentCategory = searchParams.get('cat') || 'todos';
+  
+  // 🟢 1. Estado para productos y carga
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 💡 NUEVO EFECTO: Cargar los productos al iniciar el componente
+  // 🟢 2. Cargar productos al montar
   useEffect(() => {
- // 🟢 Llama a la función que lee desde localStorage
- setAllProducts(getProducts()); 
-   }, []);
+    const loadProducts = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getProducts();
+        setAllProducts(data);
+      } catch (error) {
+        console.error("Error al cargar productos:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadProducts();
+  }, []);
 
-  const filteredProducts =
-  activeCategory === 'all'
-   ? allProducts // 🟢 AHORA USA EL ESTADO REAL
-   : allProducts.filter((p) => p.category.toLowerCase() === activeCategory);
+  const categories = [
+    { id: 'todos', label: 'Todo', icon: Package },
+    { id: 'consolas', label: 'Consolas', icon: Gamepad2 },
+    { id: 'computadores', label: 'Computación', icon: Laptop },
+    { id: 'accesorios', label: 'Accesorios', icon: Tv },
+    { id: 'juegos-mesa', label: 'Juegos de Mesa', icon: Dice5 },
+    { id: 'ropa', label: 'Ropa', icon: Shirt },
+  ];
 
+  const filteredProducts = currentCategory === 'todos' 
+    ? allProducts 
+    : allProducts.filter(p => p.category === currentCategory);
 
-   
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />
-
+      
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="mb-4 text-4xl font-bold text-accent">Explorar Categorías</h1>
-          <p className="text-lg text-muted-foreground">
-            Encuentra todo lo que necesitas para tu setup gamer
-          </p>
-        </div>
-
-        {/* Category Filter */}
-        <div className="mb-8 flex flex-wrap gap-3">
-          {categories.map((category) => {
-            const Icon = category.icon;
-            const isActive = activeCategory === category.id;
+        <h1 className="text-4xl font-bold mb-8 text-accent">Explorar Categorías</h1>
+        
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-4 mb-10 overflow-x-auto pb-4">
+          {categories.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = currentCategory === cat.id;
             return (
               <Button
-                key={category.id}
-                onClick={() => setActiveCategory(category.id)}
-                variant={isActive ? 'default' : 'outline'}
-                className={cn(
-                  isActive
-                    ? 'bg-accent text-accent-foreground hover:bg-accent/90'
-                    : 'border-border hover:border-accent hover:text-accent'
-                )}
+                key={cat.id}
+                variant={isActive ? "default" : "outline"}
+                className={`flex items-center gap-2 ${isActive ? "bg-accent text-accent-foreground" : "border-border text-foreground hover:text-accent hover:border-accent"}`}
+                onClick={() => setSearchParams({ cat: cat.id })}
               >
-                <Icon className="mr-2 h-4 w-4" />
-                {category.name}
+                <Icon className="h-4 w-4" />
+                {cat.label}
               </Button>
             );
           })}
         </div>
 
-        {/* Products Grid */}
-        {filteredProducts.length > 0 ? (
-          <>
-            <div className="mb-4 text-sm text-muted-foreground">
-              Mostrando {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''}
+        {/* 🟢 3. Renderizado Condicional */}
+        {isLoading ? (
+            <div className="text-center py-20 text-muted-foreground animate-pulse">
+                Cargando catálogo...
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </>
         ) : (
-          <div className="py-16 text-center">
-            <Gamepad2 className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-xl text-muted-foreground">
-              No hay productos en esta categoría
-            </p>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.length > 0 ? (
+                filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+                ))
+            ) : (
+                <div className="col-span-full text-center py-20 border border-dashed border-border rounded-lg">
+                    <p className="text-xl text-muted-foreground">No se encontraron productos en esta categoría.</p>
+                    <Button 
+                        variant="link" 
+                        onClick={() => setSearchParams({ cat: 'todos' })}
+                        className="text-accent mt-2"
+                    >
+                        Ver todos los productos
+                    </Button>
+                </div>
+            )}
+            </div>
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="mt-16 border-t border-border bg-card py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-muted-foreground">
-            © 2025 Level-Up⚡ Gamer. Todos los derechos reservados.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };

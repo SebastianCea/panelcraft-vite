@@ -3,8 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react"; 
-import { initializeDemoData } from "@/lib/InitializeDemoData"; 
+import { useEffect } from "react";
+import { initializeDemoData } from "@/lib/InitializeDemoData";
+import { pb } from "@/lib/pocketbase"; // 🟢 Importamos el cliente de PocketBase
 
 import Home from "./pages/Home";
 import Categories from "./pages/Categories";
@@ -22,29 +23,20 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    // 1. Inicializar datos demo
+    // 1. Inicializar datos demo en localStorage (mantener esto mientras migramos)
     initializeDemoData();
 
-    // 2. 🟢 LISTENER GLOBAL DE SINCRONIZACIÓN ENTRE PESTAÑAS 🟢
-    // Este evento se dispara cuando OTRA pestaña modifica el localStorage
-    const handleStorageChange = (event: StorageEvent) => {
-      // Si la clave de sesión ('levelup_session') fue eliminada (newValue === null)
-      if (event.key === 'levelup_session' && event.newValue === null) {
-        // Disparamos manualmente el evento 'authChange' en ESTA pestaña
-        // para que los componentes (Header, Cart, etc.) se actualicen.
-        window.dispatchEvent(new Event('authChange'));
-      }
-      // Opcional: Si se inicia sesión en otra pestaña también podemos sincronizar
-      if (event.key === 'levelup_session' && event.newValue) {
-        window.dispatchEvent(new Event('authChange'));
-      }
-    };
+    // 2. 🟢 Verificar conexión con PocketBase
+    console.log("Intentando conectar a PocketBase en:", pb.baseUrl);
+    
+    pb.health.check()
+      .then((health) => {
+        console.log("✅ Conexión exitosa con PocketBase. Estado:", health);
+      })
+      .catch((err) => {
+        console.error("❌ Error conectando a PocketBase. Asegúrate de que el servidor esté corriendo (./pocketbase serve)", err);
+      });
 
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, []);
 
   return (
@@ -52,7 +44,8 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        {/* Usamos los flags 'future' para evitar warnings de React Router v7 */}
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<FrontPage/>} />
             <Route path="/home" element={<Home />} />

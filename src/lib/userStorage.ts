@@ -1,61 +1,73 @@
+import { pb } from '@/lib/pocketbase';
 import { User } from '@/types/user';
 
-const STORAGE_KEY = 'levelup_users';
+// Nombre de la colección en PocketBase
+const COLLECTION_NAME = 'users';
 
-export const getUsers = (): User[] => {
+export const getUsers = async (): Promise<User[]> => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const records = await pb.collection(COLLECTION_NAME).getFullList<User>({
+      sort: '-created',
+    });
+    return records;
   } catch (error) {
-    console.error('Error loading users:', error);
+    console.error('Error cargando usuarios desde PocketBase:', error);
     return [];
   }
 };
 
-export const saveUsers = (users: User[]): void => {
+export const addUser = async (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+    const record = await pb.collection(COLLECTION_NAME).create<User>(userData);
+    return record;
   } catch (error) {
-    console.error('Error saving users:', error);
+    console.error('Error creando usuario en PocketBase:', error);
+    throw error;
   }
 };
 
-export const addUser = (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): User => {
-  const users = getUsers();
-  const newUser: User = {
-    ...userData,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  saveUsers([...users, newUser]);
-  return newUser;
+export const updateUser = async (id: string, userData: Partial<User>): Promise<User | null> => {
+  try {
+    // 🟢 Asegúrate de que userData no tenga campos undefined
+    const cleanData = Object.fromEntries(
+        Object.entries(userData).filter(([_, v]) => v !== undefined && v !== '')
+    );
+
+    const record = await pb.collection(COLLECTION_NAME).update<User>(id, cleanData);
+    return record;
+  } catch (error) {
+    // 🟢 Loguea el error completo para depurar
+    console.error(`Error actualizando usuario ${id}:`, error);
+    // Puedes lanzar el error para capturarlo en el componente y ver el mensaje real
+    throw error; 
+  }
 };
 
-export const updateUser = (id: string, userData: Partial<User>): User | null => {
-  const users = getUsers();
-  const index = users.findIndex(u => u.id === id);
-  if (index === -1) return null;
-  
-  const updatedUser = {
-    ...users[index],
-    ...userData,
-    updatedAt: new Date().toISOString(),
-  };
-  users[index] = updatedUser;
-  saveUsers(users);
-  return updatedUser;
+export const deleteUser = async (id: string): Promise<boolean> => {
+  try {
+    await pb.collection(COLLECTION_NAME).delete(id);
+    return true;
+  } catch (error) {
+    console.error(`Error eliminando usuario ${id}:`, error);
+    return false;
+  }
 };
 
-export const deleteUser = (id: string): boolean => {
-  const users = getUsers();
-  const filtered = users.filter(u => u.id !== id);
-  if (filtered.length === users.length) return false;
-  saveUsers(filtered);
-  return true;
+export const getUserById = async (id: string): Promise<User | null> => {
+  try {
+    const record = await pb.collection(COLLECTION_NAME).getOne<User>(id);
+    return record;
+  } catch (error) {
+    console.error(`Error obteniendo usuario ${id}:`, error);
+    return null;
+  }
 };
 
-export const getUserById = (id: string): User | null => {
-  const users = getUsers();
-  return users.find(u => u.id === id) || null;
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  try {
+    const record = await pb.collection(COLLECTION_NAME).getFirstListItem<User>(`email="${email}"`);
+    return record;
+  } catch (error) {
+    return null;
+  }
 };
