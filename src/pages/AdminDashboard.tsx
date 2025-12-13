@@ -1,385 +1,295 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ProductTable } from '@/components/admin/ProductTable';
 import { UserTable } from '@/components/admin/UserTable';
 import { OrderTable } from '@/components/admin/OrderTable';
-import { ProductFormModal } from '@/components/admin/ProductFormModal';
-import { UserFormModal } from '@/components/admin/UserFormModal';
-import { ProductViewModal } from '@/components/admin/ProductViewModal';
-import { UserViewModal } from '@/components/admin/UserViewModal';
-import { OrderDetailModal } from '@/components/admin/OrderDetailModal';
-import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog';
-import { getProducts, deleteProduct, addProduct, updateProduct } from '@/lib/productStorage';
+import { Button } from '@/components/ui/button';
+import { Plus, LayoutDashboard } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// Data & Services
+import { getProducts, deleteProduct, addProduct, updateProduct, updateStock } from '@/lib/productStorage';
 import { getUsers, deleteUser, addUser, updateUser } from '@/lib/userStorage';
-import { getOrders, calculateGrowthRate } from '@/lib/orderStorage';
-import { getCurrentUser, hasAdminAccess, logout } from '@/lib/service/authenticateUser';
+import { getOrders, updateOrder } from '@/lib/orderStorage';
 import { Product, ProductFormData } from '@/types/product';
 import { User, UserFormData } from '@/types/user';
 import { Order } from '@/types/order';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, Package, ShoppingCart, Users, TrendingUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { getCurrentUser, hasAdminAccess } from '@/lib/service/authenticateUser';
+
+// Modals
+import { ProductFormModal } from '@/components/admin/ProductFormModal';
+import { ProductViewModal } from '@/components/admin/ProductViewModal';
+import { UserFormModal } from '@/components/admin/UserFormModal';
+import { UserViewModal } from '@/components/admin/UserViewModal';
+import { OrderDetailModal } from '@/components/admin/OrderDetailModal';
+import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("products");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('products');
+
+  // Estados de datos
   const [products, setProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Modales y estados de selección
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteItemType, setDeleteItemType] = useState<'product' | 'user' | null>(null);
-  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
-  const [isVendorDeletion, setIsVendorDeletion] = useState(false); // 🟢 Estado para saber si es vendedor
 
-  const [growthRate, setGrowthRate] = useState({ percentage: 0, comparisonPeriod: '' });
-
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.userType === 'Administrador';
-
+  // 🟢 VIGILANTE DE SEGURIDAD (Protección en tiempo real)
   useEffect(() => {
-    const checkAuthAndLoad = async () => {
-        if (!hasAdminAccess()) {
-            navigate('/login');
-            return;
+    const checkAccess = () => {
+        const user = getCurrentUser();
+        const isAdmin = hasAdminAccess();
+
+        // Si no hay usuario o no es admin, ¡fuera!
+        if (!user || !isAdmin) {
+            navigate('/'); // Redirige al home
         }
-        await loadAllData();
     };
-    checkAuthAndLoad();
+
+    // 1. Verificar al cargar
+    checkAccess();
+
+    // 2. Escuchar cambios en otras pestañas (evento 'storage')
+    window.addEventListener('storage', checkAccess);
+    
+    // 3. Escuchar cambios en la misma pestaña (evento custom 'authChange')
+    window.addEventListener('authChange', checkAccess);
+
+    return () => {
+        window.removeEventListener('storage', checkAccess);
+        window.removeEventListener('authChange', checkAccess);
+    };
   }, [navigate]);
 
-  const loadAllData = async () => {
-    setIsLoading(true);
-    try {
-        const [loadedProducts, loadedOrders, growth] = await Promise.all([
-            getProducts(),
-            getOrders(),
-            calculateGrowthRate()
-        ]);
-        
-        setProducts(loadedProducts);
-        setOrders(loadedOrders);
-        setGrowthRate(growth);
+  // Manejo de Tabs desde URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+        setActiveTab(tab);
+    } else {
+        // Default a productos si no hay tab, o dashboard
+        setActiveTab('products');
+    }
+  }, [location]);
 
-        if (isAdmin) {
-            const loadedUsers = await getUsers();
-            setUsers(loadedUsers);
-        }
+  // Cargar datos (CORREGIDO: Ahora es async para manejar Promesas)
+  const loadData = async () => {
+    try {
+        // Asumiendo que getProducts, getUsers y getOrders pueden devolver promesas o valores directos
+        // Usamos Promise.resolve por si acaso son síncronos, o await si son asíncronos.
+        const productsData = await Promise.resolve(getProducts());
+        const usersData = await Promise.resolve(getUsers());
+        const ordersData = await Promise.resolve(getOrders());
+
+        // Verificamos si son arrays antes de setear (por si acaso devuelven null/undefined)
+        if (Array.isArray(productsData)) setProducts(productsData);
+        if (Array.isArray(usersData)) setUsers(usersData);
+        if (Array.isArray(ordersData)) setOrders(ordersData);
     } catch (error) {
-        console.error("Error cargando dashboard:", error);
+        console.error("Error cargando datos:", error);
         toast({ title: "Error", description: "No se pudieron cargar los datos.", variant: "destructive" });
-    } finally {
-        setIsLoading(false);
     }
   };
 
-  const handleSaveProduct = async (data: ProductFormData) => {
-    try {
-        if (editingProduct) {
-            await updateProduct(editingProduct.id, data);
-            toast({ title: "Producto actualizado" });
-        } else {
-            await addProduct(data);
-            toast({ title: "Producto creado" });
-        }
-        setIsProductModalOpen(false);
-        setEditingProduct(undefined);
-        setProducts(await getProducts());
-    } catch (error) {
-        toast({ title: "Error al guardar", variant: "destructive" });
-    }
+  useEffect(() => {
+    loadData();
+    window.addEventListener('storage', loadData); // Sincronizar datos entre tabs
+    return () => window.removeEventListener('storage', loadData);
+  }, []);
+
+  // --- LÓGICA DE MODALES (Productos) ---
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isProductViewOpen, setIsProductViewOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [viewingProduct, setViewingProduct] = useState<Product | undefined>(undefined);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteType, setDeleteType] = useState<'product' | 'user' | null>(null);
+
+  const handleCreateProduct = async (data: ProductFormData) => {
+    await Promise.resolve(addProduct(data));
+    loadData();
+    setIsProductModalOpen(false);
+    toast({ title: "Producto creado", description: "El producto se ha agregado correctamente." });
   };
 
-  const handleDeleteProductConfirm = async () => {
-    if (itemToDeleteId) {
-        await deleteProduct(itemToDeleteId);
-        setProducts(await getProducts());
-        toast({ title: "Producto eliminado" });
-    }
-    setDeleteConfirmOpen(false);
-  };
-
-  const handleSaveUser = async (data: UserFormData) => {
-    try {
-        if (editingUser) {
-            await updateUser(editingUser.id, data);
-            toast({ title: "Usuario actualizado" });
-        } else {
-            const newUserPayload = {
-                ...data,
-                passwordConfirm: data.password || "",
-            };
-            await addUser(newUserPayload);
-            toast({ title: "Usuario creado" });
-        }
-        setIsUserModalOpen(false);
-        setEditingUser(undefined);
-        if (isAdmin) setUsers(await getUsers());
-    } catch (error) {
-        console.error(error);
-        toast({ title: "Error al guardar usuario", description: "Verifica los datos.", variant: "destructive" });
-    }
-  };
-
-  // 🟢 Confirmación de eliminación de usuario (modificado para recibir razón)
-  const handleDeleteUserConfirm = async (reason?: string) => {
-    if (itemToDeleteId) {
-        const userToDelete = users.find(u => u.id === itemToDeleteId);
-        
-        if (userToDelete) {
-            // Regla: No eliminar si tiene órdenes
-            const hasOrders = orders.some(o => o.rutCliente === userToDelete.rut);
-            if (hasOrders) {
-                toast({ 
-                    title: "No se puede eliminar", 
-                    description: "Este usuario tiene órdenes asociadas.", 
-                    variant: "destructive" 
-                });
-                setDeleteConfirmOpen(false);
-                return;
-            }
-
-            // Regla: No eliminar otros admins
-            if (userToDelete.userType === 'Administrador') {
-                toast({ 
-                    title: "Acción Prohibida", 
-                    description: "No se permite eliminar cuentas de Administrador.", 
-                    variant: "destructive" 
-                });
-                setDeleteConfirmOpen(false);
-                return;
-            }
-
-            // 🟢 Regla: Si es vendedor, verificamos que tenga motivo
-            if (userToDelete.userType === 'Vendedor' && !reason) {
-                toast({ title: "Motivo requerido", variant: "destructive" });
-                return; 
-            }
-        }
-
-        await deleteUser(itemToDeleteId);
-        if (isAdmin) setUsers(await getUsers());
-        
-        // Mensaje personalizado si se dio un motivo
-        if (reason) {
-            toast({ title: "Vendedor eliminado", description: `Motivo: ${reason}` });
-        } else {
-            toast({ title: "Usuario eliminado" });
-        }
-    }
-    setDeleteConfirmOpen(false);
-  };
-
-  const openNewProductModal = () => {
+  const handleUpdateProduct = async (data: ProductFormData) => {
+    if (editingProduct) {
+      await Promise.resolve(updateProduct(editingProduct.id, data));
+      loadData();
       setEditingProduct(undefined);
-      setIsProductModalOpen(true);
+      setIsProductModalOpen(false);
+      toast({ title: "Producto actualizado", description: "Los cambios se han guardado." });
+    }
   };
 
-  const openEditProductModal = (product: Product) => {
-      setEditingProduct(product);
-      setIsProductModalOpen(true);
+  // --- LÓGICA DE MODALES (Usuarios) ---
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isUserViewOpen, setIsUserViewOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [viewingUser, setViewingUser] = useState<User | undefined>(undefined);
+
+  const handleCreateUser = async (data: UserFormData) => {
+    try {
+        await Promise.resolve(addUser(data));
+        loadData();
+        setIsUserModalOpen(false);
+        toast({ title: "Usuario creado", description: "El usuario ha sido registrado." });
+    } catch (e) {
+        toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
-  const openNewUserModal = () => {
-      setEditingUser(undefined);
-      setIsUserModalOpen(true);
+  const handleUpdateUser = async (data: UserFormData) => {
+    if (editingUser) {
+        await Promise.resolve(updateUser(editingUser.id, data));
+        loadData();
+        setEditingUser(undefined);
+        setIsUserModalOpen(false);
+        toast({ title: "Usuario actualizado", description: "Datos guardados correctamente." });
+    }
   };
 
-  const openEditUserModal = (user: User) => {
-      setEditingUser(user);
-      setIsUserModalOpen(true);
+  // --- LÓGICA DE PEDIDOS ---
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+
+  const handleUpdateOrderStatus = async (orderId: string, status: Order['statePedido']) => {
+    // Si updateOrder no existe en orderStorage, necesitas crearla.
+    if (typeof updateOrder === 'function') {
+        await Promise.resolve(updateOrder(orderId, { statePedido: status }));
+        loadData();
+        toast({ title: "Estado actualizado", description: `La orden #${orderId.slice(0,6)} está ahora: ${status}` });
+    } else {
+        console.error("updateOrder no está implementado o importado correctamente.");
+        toast({ title: "Error", description: "Función de actualizar orden no disponible.", variant: "destructive" });
+    }
   };
 
-  if (isLoading) {
-      return <div className="h-screen w-full flex items-center justify-center bg-background text-foreground"><Loader2 className="h-10 w-10 animate-spin text-accent" /></div>;
-  }
+  // --- ELIMINACIÓN GENÉRICA ---
+  const confirmDelete = async () => {
+    if (deleteType === 'product' && deletingId) {
+        await Promise.resolve(deleteProduct(deletingId));
+        toast({ title: "Producto eliminado", variant: "destructive" });
+    } else if (deleteType === 'user' && deletingId) {
+        const deleted = await Promise.resolve(deleteUser(deletingId));
+        if (deleted) toast({ title: "Usuario eliminado", variant: "destructive" });
+        else toast({ title: "Error", description: "No se puede eliminar el último admin", variant: "destructive" });
+    }
+    setDeletingId(null);
+    setDeleteType(null);
+    loadData();
+  };
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        userRole={currentUser?.userType}
-        onLogout={() => { 
-            logout(); 
-            navigate('/login'); 
-        }} 
-      />
+    <div className="flex min-h-screen bg-background">
+      <Sidebar className="w-64 hidden md:block fixed h-full" />
       
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 md:ml-64 p-8 overflow-y-auto min-h-screen">
         <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-accent">Panel de Administración</h1>
-            <div className="text-sm text-muted-foreground">Bienvenido, {currentUser?.name}</div>
-        </div>
-
-        {/* Dashboard Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
-                    <span className="text-accent text-2xl font-bold">$</span>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">
-                        ${new Intl.NumberFormat('es-CL').format(orders.reduce((sum, o) => sum + o.finalTotal, 0))}
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                        <TrendingUp className="h-3 w-3 text-green-500" /> 
-                        {Math.abs(growthRate.percentage * 100).toFixed(1)}% {growthRate.comparisonPeriod}
-                    </p>
-                </CardContent>
-            </Card>
-            <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{orders.length}</div>
-                </CardContent>
-            </Card>
-            <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Productos</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{products.length}</div>
-                </CardContent>
-            </Card>
+            <div>
+                <h1 className="text-3xl font-bold text-accent capitalize">
+                    {activeTab === 'dashboard' ? 'Panel General' : 
+                     activeTab === 'products' ? 'Gestión de Productos' : 
+                     activeTab === 'users' ? 'Gestión de Usuarios' : 'Pedidos'}
+                </h1>
+                <p className="text-muted-foreground mt-1">Administra tu tienda desde aquí.</p>
+            </div>
             
-            {isAdmin && (
-                <Card className="bg-card border-border">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Usuarios</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{users.length}</div>
-                    </CardContent>
-                </Card>
+            {activeTab === 'products' && (
+                <Button onClick={() => { setEditingProduct(undefined); setIsProductModalOpen(true); }} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
+                </Button>
+            )}
+            {activeTab === 'users' && (
+                <Button onClick={() => { setEditingUser(undefined); setIsUserModalOpen(true); }} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Plus className="mr-2 h-4 w-4" /> Nuevo Usuario
+                </Button>
             )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsContent value="products" className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold">Inventario</h2>
-                    <Button onClick={openNewProductModal} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                        Nuevo Producto
-                    </Button>
-                </div>
+        <div className="bg-card rounded-xl border border-border shadow-sm">
+            {activeTab === 'products' && (
                 <ProductTable 
                     products={products} 
-                    isAdmin={isAdmin} 
-                    onEdit={openEditProductModal}
-                    onDelete={(id) => { 
-                        setDeleteItemType('product'); 
-                        setItemToDeleteId(id); 
-                        setIsVendorDeletion(false); // Reset
-                        setDeleteConfirmOpen(true); 
-                    }}
-                    onView={(p) => setSelectedProduct(p)}
+                    onEdit={(p) => { setEditingProduct(p); setIsProductModalOpen(true); }}
+                    onDelete={(id) => { setDeletingId(id); setDeleteType('product'); }}
+                    onView={(p) => { setViewingProduct(p); setIsProductViewOpen(true); }}
+                    isAdmin={true}
                 />
-            </TabsContent>
-
-            {isAdmin && (
-                <TabsContent value="users" className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-bold">Usuarios</h2>
-                        <Button onClick={openNewUserModal} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                            Nuevo Usuario
-                        </Button>
-                    </div>
-                    <UserTable 
-                        users={users} 
-                        onEdit={openEditUserModal}
-                        onDelete={(id) => { 
-                            setDeleteItemType('user'); 
-                            setItemToDeleteId(id);
-                            // 🟢 Detectamos si es vendedor para mostrar el selector
-                            const userToDelete = users.find(u => u.id === id);
-                            setIsVendorDeletion(userToDelete?.userType === 'Vendedor');
-                            setDeleteConfirmOpen(true); 
-                        }}
-                        onView={(u) => setSelectedUser(u)}
-                    />
-                </TabsContent>
             )}
 
-            <TabsContent value="orders" className="space-y-4">
-                <h2 className="text-2xl font-bold mb-4">Órdenes de Compra</h2>
-                <OrderTable orders={orders} onView={(o) => setSelectedOrder(o)} />
-            </TabsContent>
-        </Tabs>
+            {activeTab === 'users' && (
+                <UserTable 
+                    users={users}
+                    onEdit={(u) => { setEditingUser(u); setIsUserModalOpen(true); }}
+                    onDelete={(id) => { setDeletingId(id); setDeleteType('user'); }}
+                    onView={(u) => { setViewingUser(u); setIsUserViewOpen(true); }}
+                />
+            )}
 
-        {/* MODALES */}
-        <ProductFormModal 
-            isOpen={isProductModalOpen} 
-            onClose={() => setIsProductModalOpen(false)} 
-            onSubmit={handleSaveProduct} 
-            initialData={editingProduct} 
-        />
-        <UserFormModal 
-            isOpen={isUserModalOpen} 
-            onClose={() => setIsUserModalOpen(false)} 
-            onSubmit={handleSaveUser} 
-            initialData={editingUser} 
-        />
-        <DeleteConfirmDialog 
-            isOpen={deleteConfirmOpen} 
-            onClose={() => setDeleteConfirmOpen(false)} 
-            // 🟢 Pasamos isVendorDeletion al modal para activar el selector
-            showReasonSelect={deleteItemType === 'user' && isVendorDeletion}
-            onConfirm={async (reason) => {
-                if (deleteItemType === 'product') {
-                    await handleDeleteProductConfirm();
-                } else {
-                    await handleDeleteUserConfirm(reason);
-                }
-            }}
-            title={`Eliminar ${deleteItemType === 'product' ? 'Producto' : 'Usuario'}`}
-            description="Esta acción no se puede deshacer."
-        />
-        {selectedProduct && (
-            <ProductViewModal 
-                isOpen={!!selectedProduct} 
-                onClose={() => setSelectedProduct(null)} 
-                product={selectedProduct} 
-            />
-        )}
-        {selectedUser && (
-            <UserViewModal 
-                isOpen={!!selectedUser} 
-                onClose={() => setSelectedUser(null)} 
-                user={selectedUser} 
-            />
-        )}
-        {selectedOrder && (
-            <OrderDetailModal 
-                isOpen={!!selectedOrder} 
-                onClose={() => setSelectedOrder(null)} 
-                order={selectedOrder} 
-            />
-        )}
+            {activeTab === 'orders' && (
+                <OrderTable 
+                    orders={orders}
+                    onView={(o) => setViewingOrder(o)}
+                    onUpdateStatus={handleUpdateOrderStatus}
+                />
+            )}
+
+            {activeTab === 'dashboard' && (
+                <div className="p-8 text-center text-muted-foreground">
+                    <LayoutDashboard className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                    <p>Bienvenido al Dashboard. Selecciona una opción del menú lateral.</p>
+                </div>
+            )}
+        </div>
       </main>
+
+      {/* --- MODALES --- */}
+      
+      {/* Productos */}
+      <ProductFormModal 
+        isOpen={isProductModalOpen} 
+        onClose={() => setIsProductModalOpen(false)} 
+        onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct} 
+        initialData={editingProduct} 
+      />
+      <ProductViewModal 
+        isOpen={isProductViewOpen} 
+        onClose={() => setIsProductViewOpen(false)} 
+        product={viewingProduct} 
+      />
+
+      {/* Usuarios */}
+      <UserFormModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
+        initialData={editingUser}
+      />
+      <UserViewModal
+        isOpen={isUserViewOpen}
+        onClose={() => setIsUserViewOpen(false)}
+        user={viewingUser}
+      />
+
+      {/* Pedidos */}
+      <OrderDetailModal
+        isOpen={!!viewingOrder}
+        onClose={() => setViewingOrder(null)}
+        order={viewingOrder}
+      />
+
+      {/* Confirmación Borrar */}
+      <DeleteConfirmDialog 
+        isOpen={!!deletingId} 
+        onClose={() => setDeletingId(null)} 
+        onConfirm={confirmDelete} 
+        title={deleteType === 'product' ? 'Eliminar Producto' : 'Eliminar Usuario'}
+        description="Esta acción no se puede deshacer."
+      />
+
     </div>
   );
 };

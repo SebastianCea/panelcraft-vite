@@ -2,24 +2,33 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { getCurrentUser, updateLocalSession } from '@/lib/service/authenticateUser';
+import { getCurrentUser } from '@/lib/service/authenticateUser'; // Eliminamos login que no se usa aquí
 import { updateUser } from '@/lib/userStorage';
+import { getOrders } from '@/lib/orderStorage';
 import { User } from '@/types/user';
+import { Order } from '@/types/order';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { useToast } from '@/hooks/use-toast';
-import { User as UserIcon, Gift, Save, Calendar, Mail, Lock, Loader2, Pencil, X } from 'lucide-react';
+import { User as UserIcon, Gift, Save, Calendar, Mail, Lock, ShoppingBag, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { pb } from '@/lib/pocketbase';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
+// Esquema de validación para edición de perfil
 const profileSchema = z.object({
   email: z.string().email('Correo inválido').min(1, 'El correo es requerido'),
-  // La contraseña es opcional al editar
-  password: z.string().optional(), 
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(20, 'Máximo 20 caracteres'),
   birthDay: z.string().min(1, 'Día requerido'),
   birthMonth: z.string().min(1, 'Mes requerido'),
   birthYear: z.string().min(4, 'Año requerido'),
@@ -29,30 +38,36 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // 🟢 ESTADOS PARA EDICIÓN Y SEGURIDAD
-  const [isEditing, setIsEditing] = useState(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-
+  const [orders, setOrders] = useState<Order[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Cargar usuario y órdenes al montar
   useEffect(() => {
     const loggedUser = getCurrentUser();
     if (!loggedUser) {
       navigate('/login');
       return;
     }
-    // Asegurarse de que el usuario tenga un ID válido
-    if (!loggedUser.id) {
-        console.error("Usuario sin ID en sesión local. Redirigiendo...");
-        navigate('/login');
-        return;
-    }
     setUser(loggedUser);
+
+    // 🟢 CORRECCIÓN: Función asíncrona para cargar órdenes
+    const fetchOrders = async () => {
+      try {
+        // Esperamos a que la promesa se resuelva
+        const allOrders = await getOrders();
+        
+        if (Array.isArray(allOrders)) {
+            const userOrders = allOrders.filter(order => order.rutCliente === loggedUser.rut);
+            setOrders(userOrders.reverse());
+        }
+      } catch (error) {
+        console.error("Error cargando órdenes:", error);
+      }
+    };
+
+    fetchOrders();
+
   }, [navigate]);
 
   const form = useForm<ProfileFormData>({
@@ -66,70 +81,37 @@ const Profile = () => {
     },
   });
 
-  // Función para resetear el formulario a los datos originales
-  const resetFormToUserData = () => {
+  useEffect(() => {
     if (user) {
-      let year = '', month = '', day = '';
-      if (user.birthdate) {
-          // 🟢 Extraer solo la parte de la fecha (YYYY-MM-DD) eliminando la hora si existe
-          const dateOnly = user.birthdate.split(' ')[0]; 
-          const parts = dateOnly.split('-');
-          if (parts.length === 3) {
-              [year, month, day] = parts;
-          }
-      }
-
+      const [year, month, day] = user.birthdate.split('-');
       form.reset({
         email: user.email,
-        password: '',
+        password: user.password,
         birthYear: year,
         birthMonth: month,
         birthDay: day,
       });
     }
-  };
-
-  useEffect(() => {
-    resetFormToUserData();
   }, [user, form]);
 
   const onSubmit = async (data: ProfileFormData) => {
-    // 🟢 VALIDACIÓN CRÍTICA: Asegurarse de que user.id existe
-    if (!user || !user.id) {
-        toast({
-            title: 'Error de Sesión',
-            description: 'No se pudo identificar al usuario. Por favor inicia sesión nuevamente.',
-            variant: 'destructive',
-        });
-        return;
-    }
-    
-    setIsSaving(true);
+    if (!user) return;
 
     const birthdateFormatted = `${data.birthYear}-${data.birthMonth.padStart(2, '0')}-${data.birthDay.padStart(2, '0')}`;
 
     const updates: Partial<User> = {
       email: data.email,
+      password: data.password,
       birthdate: birthdateFormatted,
     };
 
-    // Solo enviamos password si el usuario escribió algo (y es válido)
-    if (data.password && data.password.length >= 6) {
-        updates.password = data.password;
-        // PocketBase requiere confirmación de contraseña también al actualizar
-        (updates as any).passwordConfirm = data.password;
-    }
-
     try {
-        console.log("Actualizando usuario ID:", user.id); // Debug
         const updatedUser = await updateUser(user.id, updates);
 
         if (updatedUser) {
-            // 🟢 CORRECCIÓN: Usamos updateLocalSession en lugar de login
-            updateLocalSession(updatedUser);
-            
+            // 🟢 CORRECCIÓN: Eliminamos login(updatedUser) porque causa conflicto de tipos.
+            // Actualizamos solo el estado local.
             setUser(updatedUser);
-            setIsEditing(false); // Salir del modo edición al guardar
             
             toast({
                 title: 'Perfil Actualizado',
@@ -137,46 +119,19 @@ const Profile = () => {
                 className: 'bg-green-600 text-white border-none',
             });
         } else {
-            throw new Error("La respuesta del servidor fue vacía.");
+            throw new Error("No se pudo actualizar");
         }
-    } catch (error: any) {
-        console.error("Error al actualizar:", error);
-        // Mostrar mensaje más detallado si viene de PocketBase
-        const msg = error?.data?.message || error?.message || 'No se pudo actualizar el perfil.';
+    } catch (error) {
         toast({
             title: 'Error',
-            description: msg,
+            description: 'No se pudo actualizar el perfil.',
             variant: 'destructive',
         });
-    } finally {
-        setIsSaving(false);
     }
   };
 
-  // 🟢 MANEJADOR: Verificar contraseña para editar
-  const handleVerifyPassword = async () => {
-    if (!user) return;
-    setIsVerifying(true);
-    try {
-        // Intentamos autenticar con la contraseña ingresada
-        await pb.collection('users').authWithPassword(user.email, passwordInput);
-        
-        // Si pasa, es correcto
-        setIsPasswordModalOpen(false);
-        setPasswordInput("");
-        setIsEditing(true);
-        toast({ title: "Identidad Verificada", description: "Ahora puedes editar tus datos.", className: "bg-green-600 text-white border-none" });
-
-    } catch (error) {
-        toast({ title: "Contraseña Incorrecta", description: "No se pudo verificar tu identidad.", variant: "destructive" });
-    } finally {
-        setIsVerifying(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    resetFormToUserData(); // Revertir cambios
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(price);
   };
 
   if (!user) return null;
@@ -189,22 +144,15 @@ const Profile = () => {
    ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-10">
       <PublicHeader />
       
       <div className="container mx-auto px-4 py-10">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-accent flex items-center gap-2">
-                <UserIcon className="h-8 w-8" /> Mi Perfil
-            </h1>
-            {/* 🟢 BOTÓN EDITAR DATOS (Solo visible si NO está editando) */}
-            {!isEditing && (
-                <Button onClick={() => setIsPasswordModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                    <Pencil className="mr-2 h-4 w-4" /> Editar Datos
-                </Button>
-            )}
-          </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+          
+          <h1 className="text-3xl font-bold text-accent mb-8 flex items-center gap-2">
+            <UserIcon className="h-8 w-8" /> Mi Perfil
+          </h1>
 
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="bg-card border-border">
@@ -245,13 +193,79 @@ const Profile = () => {
 
           <Card className="bg-card border-border mt-8">
             <CardHeader>
-                <CardTitle className="text-xl text-accent flex justify-between items-center">
-                    <span>Configuración de Cuenta</span>
-                    {isEditing && <span className="text-sm text-green-500 font-normal px-2 py-1 bg-green-500/10 rounded">Modo Edición Activo</span>}
+                <CardTitle className="text-xl text-accent flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5" /> Historial de Compras
                 </CardTitle>
-                <CardDescription>
-                    {isEditing ? "Puedes modificar tus datos abajo." : "Para modificar tus datos, presiona el botón 'Editar Datos' arriba."}
-                </CardDescription>
+                <CardDescription>Revisa el estado de tus pedidos recientes.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {orders.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                        <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No has realizado compras aún.</p>
+                        <Button variant="link" onClick={() => navigate('/categorias')} className="text-accent mt-2">
+                            Ir a comprar
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="rounded-md border border-border overflow-hidden">
+                        <Table>
+                            <TableHeader className="bg-muted/50">
+                                <TableRow>
+                                    <TableHead>Orden</TableHead>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="hidden md:table-cell">Productos</TableHead>
+                                    <TableHead className="text-right">Total Pagado</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {orders.map((order) => (
+                                    <TableRow key={order.id}>
+                                        <TableCell className="font-medium">#{order.id.slice(0, 6)}</TableCell>
+                                        <TableCell>{order.date}</TableCell>
+                                        <TableCell>
+                                            {/* 🟢 CORRECCIÓN: Usamos 'Recibido' en lugar de 'Entregado' para coincidir con el tipo Order */}
+                                            <Badge variant="outline" className={
+                                                order.statePedido === 'Recibido' ? 'border-green-500 text-green-500' : 
+                                                order.statePedido === 'En camino' ? 'border-blue-500 text-blue-500' :
+                                                'border-yellow-500 text-yellow-500'
+                                            }>
+                                                {order.statePedido}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell max-w-[200px]">
+                                            <div className="flex flex-col gap-1">
+                                                {order.items.slice(0, 2).map((item, idx) => (
+                                                    <span key={idx} className="text-xs text-muted-foreground truncate">
+                                                        {item.quantity}x {item.name}
+                                                    </span>
+                                                ))}
+                                                {order.items.length > 2 && (
+                                                    <span className="text-xs text-accent italic">
+                                                        +{order.items.length - 2} más...
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-bold text-foreground">
+                                            {formatPrice(order.finalTotal || order.total)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border mt-8">
+            <CardHeader>
+                <CardTitle className="text-xl text-foreground flex items-center gap-2">
+                    <Save className="h-5 w-5" /> Editar Cuenta
+                </CardTitle>
+                <CardDescription>Actualiza tu correo, contraseña o fecha de nacimiento.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -264,18 +278,23 @@ const Profile = () => {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="flex items-center gap-2"><Mail className="h-4 w-4" /> Nuevo Correo</FormLabel>
-                                        <FormControl><Input {...field} className="bg-input border-border" disabled={!isEditing} /></FormControl>
+                                        <FormControl>
+                                            <Input {...field} className="bg-input border-border" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
+
                             <FormField
                                 control={form.control}
                                 name="password"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2"><Lock className="h-4 w-4" /> Nueva Contraseña (Opcional)</FormLabel>
-                                        <FormControl><Input type="password" {...field} className="bg-input border-border" placeholder={isEditing ? "Dejar vacío para mantener" : "********"} disabled={!isEditing} /></FormControl>
+                                        <FormLabel className="flex items-center gap-2"><Lock className="h-4 w-4" /> Nueva Contraseña</FormLabel>
+                                        <FormControl>
+                                            <Input type="text" {...field} className="bg-input border-border" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -286,12 +305,15 @@ const Profile = () => {
                             <FormLabel className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Fecha de Nacimiento</FormLabel>
                             <div className="grid grid-cols-3 gap-4">
                                 <FormField control={form.control} name="birthDay" render={({ field }) => (
-                                    <FormItem><FormControl><Input placeholder="Día" className="bg-input border-border" {...field} disabled={!isEditing} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormControl><Input placeholder="Día" className="bg-input border-border" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="birthMonth" render={({ field }) => (
                                     <FormItem>
                                         <FormControl>
-                                            <select className="flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm disabled:opacity-50" {...field} disabled={!isEditing}>
+                                            <select 
+                                                className="flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                {...field}
+                                            >
                                                 <option value="">Mes</option>
                                                 {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                                             </select>
@@ -300,57 +322,23 @@ const Profile = () => {
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control} name="birthYear" render={({ field }) => (
-                                    <FormItem><FormControl><Input placeholder="Año" className="bg-input border-border" {...field} disabled={!isEditing} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormControl><Input placeholder="Año" className="bg-input border-border" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </div>
                         </div>
 
-                        {/* 🟢 BOTONES DE ACCIÓN (SOLO SI ESTÁ EDITANDO) */}
-                        {isEditing && (
-                            <div className="flex justify-end gap-2 pt-4 animate-in fade-in slide-in-from-bottom-2">
-                                <Button type="button" variant="outline" onClick={handleCancelEdit}>
-                                    <X className="mr-2 h-4 w-4" /> Cancelar
-                                </Button>
-                                <Button type="submit" disabled={isSaving} className="bg-accent text-accent-foreground hover:bg-accent/90 md:w-auto">
-                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                                </Button>
-                            </div>
-                        )}
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 w-full md:w-auto">
+                                Guardar Cambios
+                            </Button>
+                        </div>
                     </form>
                 </Form>
             </CardContent>
           </Card>
+
         </div>
       </div>
-
-      {/* 🟢 MODAL DE VERIFICACIÓN DE CONTRASEÑA */}
-      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-                <DialogTitle>Verificar Identidad</DialogTitle>
-                <DialogDescription>
-                    Por seguridad, ingresa tu contraseña actual para habilitar la edición.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-                <Input 
-                    type="password" 
-                    placeholder="Contraseña actual" 
-                    value={passwordInput} 
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    className="bg-input border-border"
-                />
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>Cancelar</Button>
-                <Button onClick={handleVerifyPassword} disabled={!passwordInput || isVerifying} className="bg-accent text-accent-foreground">
-                    {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verificar"}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 };
