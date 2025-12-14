@@ -1,0 +1,334 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for panelcraft-vite/src/lib/ordersData.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">panelcraft-vite/src/lib</a> ordersData.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/84</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/84</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { Order } from '../types/order'; // Asegúrate de que la ruta sea correcta</span></span></span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >export const demoOrders: Order[] = [</span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 1: Envío a domicilio ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '00123', rutCliente: '12.345.678-9', date: '30-09-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 20000, paymentMethod: 'webpay', paymentId: '8888', statePago: 'Aprobado',</span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'envio', </span>
+<span class="cstat-no" title="statement not covered" >    addressDetail: 'Av. Las Condes 9000', region: 'metropolitana', commune: 'lascondes', </span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '5555', statePedido: 'En camino',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 22200, globalDiscount: 2200, finalTotal: 20000,</span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Producto A', quantity: 2, subTotal: 10000, discountPercentage: 0.10, total: 9000 },</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Producto B', quantity: 1, subTotal: 7500, discountPercentage: 0.00, total: 7500 },</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Producto C', quantity: 3, subTotal: 6000, discountPercentage: 0.05, total: 5700 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" > </span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 2: Envío a domicilio ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '0112', rutCliente: '9.876.432-1', date: '19-09-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 40000, paymentMethod: 'bancoestado', paymentId: '123123', statePago: 'Aprobado',</span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'envio', </span>
+<span class="cstat-no" title="statement not covered" >    addressDetail: 'Calle Sur 456', region: 'biobio', commune: 'concepcion',</span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '321321', statePedido: 'En preparación',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 40000, globalDiscount: 0, finalTotal: 40000,</span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Auriculares HyperX', quantity: 1, subTotal: 79990, discountPercentage: 0.50, total: 40000 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" > </span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 3: Retiro en tienda (sucursal) ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '0030', rutCliente: '22.333.444-5', date: '05-10-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 12990, paymentMethod: 'transferencia', paymentId: '9902', statePago: 'Pendiente', </span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'retiro en tienda', </span>
+<span class="cstat-no" title="statement not covered" >    branchOffice: 'Santiago (Av. Central 123)', // Retiro</span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '0000', statePedido: 'En preparación',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 12990, globalDiscount: 0, finalTotal: 12990,</span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Polera Level-Up', quantity: 1, subTotal: 12990, discountPercentage: 0.00, total: 12990 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 4: Envío a domicilio ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '0031', rutCliente: '11.555.222-1', date: '25-10-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 150000, paymentMethod: 'webpay', paymentId: '6655', statePago: 'Aprobado', </span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'envio', </span>
+<span class="cstat-no" title="statement not covered" >    addressDetail: 'Río Calle-Calle 789', region: 'losrios', commune: 'valdivia',</span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '7788', statePedido: 'Enviado',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 150000, globalDiscount: 0, finalTotal: 150000,</span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'PC Gamer RTX', quantity: 1, subTotal: 1499900, discountPercentage: 0.90, total: 150000 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" > </span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 5: Envío a domicilio ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '0032', rutCliente: '32.123.321.1', date: '08-11-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 30000, paymentMethod: 'bancoestado', paymentId: '4321', statePago: 'Aprobado',</span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'envio', </span>
+<span class="cstat-no" title="statement not covered" >    addressDetail: 'Av.Central 1234', region: 'metropolitana', commune: 'providencia',</span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '5431', statePedido: 'Enviado',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 30000, globalDiscount: 0, finalTotal: 30000, </span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Juegos de Mesa Catan', quantity: 1, subTotal: 30000, discountPercentage: 0.00, total: 30000 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" > // --- ORDEN 6: Retiro en tienda ---</span>
+<span class="cstat-no" title="statement not covered" > {</span>
+<span class="cstat-no" title="statement not covered" >  id: '0033', rutCliente: '77.777.777-7', date: '09-11-2025',</span>
+<span class="cstat-no" title="statement not covered" >  total: 45000, paymentMethod: 'transferencia', paymentId: '1234', statePago: 'Aprobado',</span>
+<span class="cstat-no" title="statement not covered" >  Courier: 'retiro en tienda', </span>
+<span class="cstat-no" title="statement not covered" >    branchOffice: 'Concepcion (Calle Sur 456)',</span>
+<span class="cstat-no" title="statement not covered" >    Tracking: '9999', statePedido: 'En preparación',</span>
+<span class="cstat-no" title="statement not covered" >  globalSubtotal: 45000, globalDiscount: 0, finalTotal: 45000,</span>
+<span class="cstat-no" title="statement not covered" >  items: [</span>
+<span class="cstat-no" title="statement not covered" >   { name: 'Mouse Gamer Logitech G502', quantity: 1, subTotal: 45000, discountPercentage: 0.00, total: 45000 },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
+<span class="cstat-no" title="statement not covered" > },</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >];</span></pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2025-12-14T18:25:04.213Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
+    

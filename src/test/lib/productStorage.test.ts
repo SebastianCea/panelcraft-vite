@@ -1,138 +1,218 @@
-import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-    getProducts, 
-    addProduct, 
-    updateStock, 
-    getProductById, 
-    updateProduct, 
-    deleteProduct,
-    getProductsByCategory
-} from '../../lib/productStorage';
-import { ProductFormData } from '@/types/product';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as productStorage from '@/lib/productStorage';
 
-// --- MOCK DE POCKETBASE ---
-// Simulamos las funciones que usas de la base de datos
-const mockCollection = {
-    getFullList: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getOne: vi.fn(),
-    getList: vi.fn(),
+// --- ESTRATEGIA DE MOCK CORREGIDA ---
+
+// 1. Creamos un objeto fijo con las funciones espía.
+// Este objeto será el que compartan tanto el test como el código real.
+const mockCollectionMethods = {
+  getFullList: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  getOne: vi.fn(),
+  getList: vi.fn(),
 };
 
-// Interceptamos la importación de la instancia 'pb'
+// 2. Mockeamos el módulo. Cuando productStorage llame a pb.collection(),
+// Vitest le entregará SIEMPRE nuestro objeto 'mockCollectionMethods'.
 vi.mock('@/lib/pocketbase', () => ({
-    pb: {
-        collection: vi.fn(() => mockCollection),
-        autoCancellation: vi.fn(),
-    }
+  pb: {
+    collection: vi.fn(() => mockCollectionMethods),
+    autoCancellation: vi.fn(),
+  },
 }));
 
-// --- DATOS DE PRUEBA ---
-const MOCK_DATA: ProductFormData = {
-    name: 'Teclado Gamer Hyper-K',
-    price: 45000,
-    category: 'accesorios',
-    description: 'Teclado mecánico.',
-    stock: 50,
-    image: 'http://ejemplo.com/img.jpg',
-    minStock: 10,
-};
-
-// Respuesta simulada de la base de datos (incluye ID y fechas)
-const mockRecord = {
-    id: 'prod-123',
-    ...MOCK_DATA,
+describe('ProductStorage Library', () => {
+  const mockProduct = {
+    id: 'p1',
+    name: 'PS5',
+    price: 500000,
+    category: 'consolas',
+    stock: 10,
     created: '2023-01-01',
-    updated: '2023-01-01'
-};
+  };
 
-describe('productStorage - Cobertura Completa (PocketBase Mock)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        
-        // Configuramos respuestas exitosas por defecto
-        mockCollection.getFullList.mockResolvedValue([mockRecord]);
-        mockCollection.getOne.mockResolvedValue(mockRecord);
-        mockCollection.create.mockResolvedValue(mockRecord);
-        mockCollection.update.mockResolvedValue({ ...mockRecord, stock: 45 }); // Ejemplo post-update
-        mockCollection.delete.mockResolvedValue(true);
-        mockCollection.getList.mockResolvedValue({ items: [mockRecord] });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // 1. GET PRODUCTS
+  describe('getProducts', () => {
+    it('debe retornar lista de productos en caso de éxito', async () => {
+      // Usamos mockCollectionMethods directamente
+      mockCollectionMethods.getFullList.mockResolvedValue([mockProduct]);
+
+      const result = await productStorage.getProducts();
+
+      expect(mockCollectionMethods.getFullList).toHaveBeenCalledWith({ sort: '-created' });
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('PS5');
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
+    it('debe manejar error y retornar array vacío (catch block)', async () => {
+      mockCollectionMethods.getFullList.mockRejectedValue(new Error('DB Error'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const result = await productStorage.getProducts();
+
+      expect(result).toEqual([]);
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  // 2. ADD PRODUCT
+  describe('addProduct', () => {
+    it('debe crear un producto correctamente', async () => {
+      mockCollectionMethods.create.mockResolvedValue(mockProduct);
+
+      const newProd = await productStorage.addProduct(mockProduct as any);
+
+      expect(mockCollectionMethods.create).toHaveBeenCalledWith(mockProduct);
+      expect(newProd).toEqual(mockProduct);
     });
 
-    // --- PRUEBAS ---
+    it('debe lanzar error si falla la creación', async () => {
+      mockCollectionMethods.create.mockRejectedValue(new Error('Create Fail'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    test('getProducts: debe retornar la lista de productos desde la colección', async () => {
-        const products = await getProducts();
-        
-        expect(products).toHaveLength(1);
-        expect(products[0].id).toBe('prod-123');
-        // Verificamos que se llamó a la colección correcta
-        expect(mockCollection.getFullList).toHaveBeenCalled(); 
+      await expect(productStorage.addProduct(mockProduct as any)).rejects.toThrow('Create Fail');
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  // 3. UPDATE PRODUCT
+  describe('updateProduct', () => {
+    it('debe actualizar producto correctamente', async () => {
+      mockCollectionMethods.update.mockResolvedValue({ ...mockProduct, name: 'PS5 Pro' });
+
+      const result = await productStorage.updateProduct('p1', { name: 'PS5 Pro' });
+
+      expect(mockCollectionMethods.update).toHaveBeenCalledWith('p1', { name: 'PS5 Pro' });
+      expect(result.name).toBe('PS5 Pro');
     });
 
-    test('addProduct: debe crear un registro en PocketBase', async () => {
-        const result = await addProduct(MOCK_DATA);
-        
-        expect(result.id).toBe('prod-123');
-        expect(mockCollection.create).toHaveBeenCalledWith(expect.objectContaining(MOCK_DATA));
+    it('debe lanzar error si falla la actualización', async () => {
+      mockCollectionMethods.update.mockRejectedValue(new Error('Update Fail'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(productStorage.updateProduct('p1', {})).rejects.toThrow('Update Fail');
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  // 4. DELETE PRODUCT
+  describe('deleteProduct', () => {
+    it('debe retornar true si elimina correctamente', async () => {
+      mockCollectionMethods.delete.mockResolvedValue(true);
+
+      const result = await productStorage.deleteProduct('p1');
+
+      expect(mockCollectionMethods.delete).toHaveBeenCalledWith('p1');
+      expect(result).toBe(true);
     });
 
-    test('updateStock: debe obtener el producto y luego actualizar su stock', async () => {
-        // 1. Simulamos que getOne devuelve el producto con stock 50
-        mockCollection.getOne.mockResolvedValue(mockRecord);
-        
-        // 2. Ejecutamos la venta de 5 unidades
-        await updateStock('prod-123', 5);
-        
-        // 3. Verificamos que se llamó a update con el nuevo stock (45)
-        expect(mockCollection.update).toHaveBeenCalledWith('prod-123', expect.objectContaining({
-            stock: 45
-        }));
+    it('debe retornar false si ocurre un error', async () => {
+      mockCollectionMethods.delete.mockRejectedValue(new Error('Delete Fail'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const result = await productStorage.deleteProduct('p1');
+
+      expect(result).toBe(false);
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  // 5. UPDATE STOCK
+  describe('updateStock', () => {
+    it('debe restar stock correctamente', async () => {
+      // Configuramos el mock para que getOne devuelva un producto válido
+      // Esto soluciona el error "Cannot read properties of undefined (reading 'stock')"
+      mockCollectionMethods.getOne.mockResolvedValue(mockProduct);
+      mockCollectionMethods.update.mockResolvedValue({});
+
+      // Restamos 2
+      await productStorage.updateStock('p1', 2);
+
+      // Verifica que calculó 10 - 2 = 8
+      expect(mockCollectionMethods.update).toHaveBeenCalledWith('p1', { stock: 8 });
     });
 
-    test('getProductById: debe buscar un registro por su ID', async () => {
-        const result = await getProductById('prod-123');
-        
-        expect(result).toBeDefined();
-        expect(result?.name).toBe(MOCK_DATA.name);
-        expect(mockCollection.getOne).toHaveBeenCalledWith('prod-123');
+    it('no debe bajar de 0 el stock', async () => {
+      mockCollectionMethods.getOne.mockResolvedValue({ ...mockProduct, stock: 1 });
+      mockCollectionMethods.update.mockResolvedValue({});
+
+      // Restamos 5 (más de lo que hay)
+      await productStorage.updateStock('p1', 5);
+
+      // Verifica que se queda en 0
+      expect(mockCollectionMethods.update).toHaveBeenCalledWith('p1', { stock: 0 });
     });
 
-    test('updateProduct: debe enviar los cambios a la base de datos', async () => {
-        const updates = { price: 99990 };
-        await updateProduct('prod-123', updates);
-        
-        expect(mockCollection.update).toHaveBeenCalledWith('prod-123', expect.objectContaining(updates));
+    it('debe manejar errores silenciosamente (solo log)', async () => {
+      mockCollectionMethods.getOne.mockRejectedValue(new Error('Stock Error'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await expect(productStorage.updateStock('p1', 1)).resolves.not.toThrow();
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+
+  // 6. GET PRODUCT BY ID
+  describe('getProductById', () => {
+    it('debe retornar un producto si existe', async () => {
+      mockCollectionMethods.getOne.mockResolvedValue(mockProduct);
+      const result = await productStorage.getProductById('p1');
+      expect(result).toEqual(mockProduct);
     });
 
-    test('deleteProduct: debe eliminar el registro por ID', async () => {
-        await deleteProduct('prod-123');
-        
-        expect(mockCollection.delete).toHaveBeenCalledWith('prod-123');
+    it('debe retornar null si falla o no existe', async () => {
+      mockCollectionMethods.getOne.mockRejectedValue(new Error('Not found'));
+      const result = await productStorage.getProductById('p1');
+      expect(result).toBeNull();
+    });
+  });
+
+  // 7. GET PRODUCTS BY CATEGORY
+  describe('getProductsByCategory', () => {
+    it('debe filtrar productos correctamente', async () => {
+      mockCollectionMethods.getFullList.mockResolvedValue([mockProduct]);
+
+      const result = await productStorage.getProductsByCategory('consolas');
+
+      expect(mockCollectionMethods.getFullList).toHaveBeenCalledWith({
+        filter: `category = "consolas"`
+      });
+      expect(result).toHaveLength(1);
     });
 
-    test('Manejo de Errores: debe capturar fallos de red', async () => {
-        // Simulamos que PocketBase falla
-        mockCollection.getFullList.mockRejectedValue(new Error('Error de conexión simulado'));
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-        try {
-            await getProducts();
-        } catch (e) {
-            // Dependiendo de tu implementación, el error puede ser relanzado o capturado
-        }
-
-        // Lo importante es que no rompa el test suite y (opcionalmente) loguee el error
-        // Si tu implementación hace un return [] en catch, verificamos eso:
-        // expect(result).toEqual([]); 
-        
-        consoleSpy.mockRestore();
+    it('debe retornar array vacío en caso de error', async () => {
+      mockCollectionMethods.getFullList.mockRejectedValue(new Error('Filter Error'));
+      const result = await productStorage.getProductsByCategory('consolas');
+      expect(result).toEqual([]);
     });
+  });
+
+  // 8. GET FEATURED PRODUCTS
+  describe('getFeaturedProducts', () => {
+    it('debe retornar productos destacados (getList)', async () => {
+      // getList devuelve un objeto paginado { items: [] }
+      mockCollectionMethods.getList.mockResolvedValue({ items: [mockProduct, mockProduct] });
+
+      const result = await productStorage.getFeaturedProducts();
+
+      expect(mockCollectionMethods.getList).toHaveBeenCalledWith(1, 6, { sort: '-created' });
+      expect(result).toHaveLength(2);
+    });
+
+    it('debe retornar array vacío en caso de error', async () => {
+      mockCollectionMethods.getList.mockRejectedValue(new Error('Featured Error'));
+      const result = await productStorage.getFeaturedProducts();
+      expect(result).toEqual([]);
+    });
+  });
 });
