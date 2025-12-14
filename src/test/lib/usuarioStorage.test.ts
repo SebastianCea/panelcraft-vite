@@ -1,130 +1,113 @@
-import { test, expect, describe, beforeEach, afterEach, vi } from 'vitest';
-import { getUsers, addUser, updateUser, deleteUser, getUserById, saveUsers } from '../../lib/userStorage'; 
-import { User, UserFormData } from '@/types/user'; 
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import { getUsers, addUser, updateUser, deleteUser, getUserById } from '../../lib/userStorage';
+import { UserFormData } from '@/types/user';
 
-//  1. MOCK DE DATOS
-const MOCK_NEW_USER_DATA: UserFormData = {
+// --- MOCK DE POCKETBASE ---
+const mockCollection = {
+    getFullList: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getOne: vi.fn(),
+};
+
+vi.mock('@/lib/pocketbase', () => ({
+    pb: {
+        collection: vi.fn(() => mockCollection),
+        autoCancellation: vi.fn(), 
+    }
+}));
+
+// --- DATOS DE PRUEBA ---
+const MOCK_USER: UserFormData = {
     rut: '11111111-1',
-    name: 'Test Nuevo',
-    email: 'test.nuevo@levelup.cl',
-    password: 'SecurePassword1234',
+    name: 'Test User',
+    email: 'test@levelup.cl',
+    password: 'Password123',
     birthdate: '1990-01-01',
     userType: 'Cliente',
     address: 'Calle Falsa 123',
     region: 'Metropolitana',
-    comuna: 'Santiago'
+    comuna: 'Santiago',
+    discountPercentage: 0
 };
 
-const MOCK_EXISTING_USER: UserFormData = {
-    rut: '99999999-9',
-    name: 'Existing Admin',
-    email: 'admin.test@levelup.admin.cl',
-    password: 'AdminPassword',
-    birthdate: '1980-01-01',
-    userType: 'Administrador',
-    address: 'Central Admin 100',
-    region: 'Metropolitana',
-    comuna: 'Providencia'
+const mockUserRecord = {
+    id: 'user-abc',
+    ...MOCK_USER,
+    created: '2023-05-10',
+    updated: '2023-05-10'
 };
 
-describe('userStorage - Cobertura Completa', () => {
+describe('userStorage - Cobertura Completa (PocketBase Mock)', () => {
 
     beforeEach(() => {
-        localStorage.clear();
         vi.clearAllMocks();
-        // Inicializamos con un usuario para las pruebas estándar
-        addUser(MOCK_EXISTING_USER);
+        // Configurar respuestas exitosas por defecto
+        mockCollection.getFullList.mockResolvedValue([mockUserRecord]);
+        mockCollection.create.mockResolvedValue(mockUserRecord);
+        mockCollection.update.mockResolvedValue({ ...mockUserRecord, name: 'Nombre Actualizado' });
+        mockCollection.delete.mockResolvedValue(true);
+        mockCollection.getOne.mockResolvedValue(mockUserRecord);
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    // --- BLOQUE 1: FUNCIONALIDAD CRUD (Happy Path) ---
-    describe('Pruebas Unitarias de Lógica CRUD', () => {
-        test('1. addUser: Debería añadir un nuevo usuario', () => {
-            const initialCount = getUsers().length;
-            const addedUser = addUser(MOCK_NEW_USER_DATA);
-            const updatedUsers = getUsers();
-
-            expect(updatedUsers.length).toBe(initialCount + 1);
-            expect(addedUser.id).toBeTypeOf('string');
-            expect(addedUser.userType).toBe('Cliente');
-        });
-
-        test('2. updateUser: Debería actualizar un usuario existente', async () => {
-            const users = getUsers();
-            const targetUser = users.find(u => u.rut === MOCK_EXISTING_USER.rut);
-            const newName = 'Admin Modificado';
-
-            // Pausa para asegurar cambio de timestamp
-            await new Promise((resolve) => setTimeout(resolve, 10));
-
-            updateUser(targetUser!.id, { name: newName });
-            
-            const finalUser = getUserById(targetUser!.id);
-            expect(finalUser?.name).toBe(newName);
-            expect(finalUser?.updatedAt).not.toBe(targetUser!.updatedAt);
-        });
-
-        test('3. updateUser: Debería retornar null si el usuario no existe', () => {
-            const result = updateUser('id-inexistente', { name: 'Nadie' });
-            expect(result).toBeNull();
-        });
-        
-        test('4. deleteUser: Debería eliminar un usuario existente', () => {
-            const users = getUsers();
-            const targetUser = users.find(u => u.rut === MOCK_EXISTING_USER.rut);
-
-            const success = deleteUser(targetUser!.id);
-            expect(success).toBe(true);
-            expect(getUserById(targetUser!.id)).toBeNull();
-        });
-
-        test('5. deleteUser: Debería retornar false si el id no existe', () => {
-            const success = deleteUser('id-fantasma');
-            expect(success).toBe(false);
-        });
+    test('addUser: Debería crear un usuario en la colección', async () => {
+        const result = await addUser(MOCK_USER);
+        expect(result.id).toBe('user-abc');
+        expect(mockCollection.create).toHaveBeenCalledWith(expect.objectContaining({
+            email: 'test@levelup.cl'
+        }));
     });
 
-    // --- BLOQUE 2: MANEJO DE ERRORES (Cubrir líneas 10-12 y 19-20) ---
-    describe('Manejo de Errores (LocalStorage)', () => {
+    test('getUsers: Debería listar usuarios', async () => {
+        const users = await getUsers();
+        expect(users).toHaveLength(1);
+        expect(users[0].name).toBe('Test User');
+        expect(mockCollection.getFullList).toHaveBeenCalled();
+    });
+
+    test('getUserById: Debería obtener un usuario específico', async () => {
+        const user = await getUserById('user-abc');
+        expect(user).toBeDefined();
+        expect(user?.rut).toBe(MOCK_USER.rut);
+        expect(mockCollection.getOne).toHaveBeenCalledWith('user-abc');
+    });
+
+    test('updateUser: Debería actualizar datos del usuario', async () => {
+        const updates = { name: 'Nombre Actualizado' };
+        await updateUser('user-abc', updates);
+        expect(mockCollection.update).toHaveBeenCalledWith('user-abc', expect.objectContaining(updates));
+    });
+
+    test('deleteUser: Debería eliminar el usuario', async () => {
+        const result = await deleteUser('user-abc');
+        expect(result).toBe(true);
+        expect(mockCollection.delete).toHaveBeenCalledWith('user-abc');
+    });
+
+    test('Manejo de Error: getUsers falla', async () => {
+        mockCollection.getFullList.mockRejectedValue(new Error('DB Error'));
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const result = await getUsers();
         
-        test('getUsers: Debe manejar error al leer localStorage (Catch Block)', () => {
-            // 1. Forzamos que localStorage.getItem lance un error
-            const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-                throw new Error('Error de lectura simulado');
-            });
-            
-            // 2. Espiamos console.error para verificar que se loguea el error pero no crashea
-            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        expect(result).toEqual([]);
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+    });
 
-            // 3. Ejecutamos
-            const result = getUsers();
+    test('Manejo de Error: deleteUser falla', async () => {
+        mockCollection.delete.mockRejectedValue(new Error('No se pudo borrar'));
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            // 4. Verificaciones
-            expect(result).toEqual([]); // Debe retornar array vacío por defecto
-            expect(consoleSpy).toHaveBeenCalledWith('Error loading users:', expect.any(Error));
-
-            getItemSpy.mockRestore();
-        });
-
-        test('saveUsers: Debe manejar error al escribir en localStorage (Catch Block)', () => {
-            // 1. Forzamos que localStorage.setItem lance un error (ej: cuota excedida)
-            const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-                throw new Error('QuotaExceededError');
-            });
-            
-            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-            // 2. Ejecutamos saveUsers (directamente o vía addUser)
-            // Intentamos guardar una lista vacía o cualquier dato
-            saveUsers([]);
-
-            // 3. Verificaciones
-            expect(consoleSpy).toHaveBeenCalledWith('Error saving users:', expect.any(Error));
-
-            setItemSpy.mockRestore();
-        });
+        const result = await deleteUser('user-abc');
+        
+        expect(result).toBe(false);
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
     });
 });

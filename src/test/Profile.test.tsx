@@ -4,11 +4,12 @@ import { BrowserRouter } from 'react-router-dom';
 import Profile from '@/pages/Profile';
 import * as authService from '@/lib/service/authenticateUser';
 import * as userStorage from '@/lib/userStorage';
+import * as orderStorage from '@/lib/orderStorage'; // 🟢 Importante mockear esto también
 import React from 'react';
 
 // --- MOCKS ---
 
-// 1. Mock del Hook de Toast (shadcn/ui)
+// 1. Mock del Hook de Toast
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
     useToast: () => ({
@@ -16,7 +17,7 @@ vi.mock('@/hooks/use-toast', () => ({
     })
 }));
 
-// 2. Mock de Navigation (para probar redirección)
+// 2. Mock de Navigation
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
     const actual = await vi.importActual('react-router-dom');
@@ -47,10 +48,15 @@ describe('Vista Perfil - Cobertura Completa', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         
-        // Spies por defecto (Usuario Autenticado)
+        // Spies Auth & User
         vi.spyOn(authService, 'getCurrentUser').mockReturnValue(mockUser as any);
-        vi.spyOn(authService, 'login').mockImplementation(() => {});
-        vi.spyOn(userStorage, 'updateUser').mockImplementation((id, updates) => ({ ...mockUser, ...updates } as any));
+        
+        // updateUser es async en el componente, usamos mockResolvedValue para simular éxito
+        vi.spyOn(userStorage, 'updateUser').mockResolvedValue(mockUser as any);
+        
+        // Spy Orders (Necesario porque Profile carga órdenes al montar)
+        // Devolvemos un array vacío para que no rompa la carga
+        vi.spyOn(orderStorage, 'getOrders').mockResolvedValue([]); 
     });
 
     afterEach(() => {
@@ -59,37 +65,50 @@ describe('Vista Perfil - Cobertura Completa', () => {
 
     // --- TEST 1: RENDERIZADO Y CARGA DE DATOS ---
     test('1. Debe renderizar datos del usuario y llenar el formulario', async () => {
-        render(<BrowserRouter><Profile /></BrowserRouter>);
+        render(
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Profile />
+            </BrowserRouter>
+        );
 
         // Verificar Textos Fijos
         expect(screen.getByText('Usuario Prueba')).toBeDefined();
         expect(screen.getByText('11.111.111-1')).toBeDefined();
         
-        // Usamos waitFor para esperar a que el useEffect llene el formulario
+        // Esperamos a que el formulario se llene (puede tomar un instante por el useEffect)
         await waitFor(() => {
-            // Verificar inputs de texto
             expect(screen.getByDisplayValue('test@duocuc.cl')).toBeDefined();
-            
-            
         });
     });
 
     // --- TEST 2: REDIRECCIÓN (NO AUTENTICADO) ---
     test('2. Debe redirigir a /login si no hay usuario autenticado', () => {
-        // Simulamos que no hay usuario
         vi.spyOn(authService, 'getCurrentUser').mockReturnValue(null);
         
-        render(<BrowserRouter><Profile /></BrowserRouter>);
+        render(
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Profile />
+            </BrowserRouter>
+        );
         
-        // Verificamos redirección inmediata
         expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
 
     // --- TEST 3: ACTUALIZACIÓN EXITOSA ---
     test('3. Flujo de actualización de perfil correcto', async () => {
-        render(<BrowserRouter><Profile /></BrowserRouter>);
+        // Mockeamos la respuesta de update para reflejar los cambios simulados
+        vi.spyOn(userStorage, 'updateUser').mockImplementation(async (id, updates) => ({
+            ...mockUser,
+            ...updates,
+        } as any));
 
-        // Esperamos a que cargue para poder editar
+        render(
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Profile />
+            </BrowserRouter>
+        );
+
+        // Esperar carga inicial
         await waitFor(() => screen.getByDisplayValue('test@duocuc.cl'));
 
         // 1. Modificar campos
@@ -103,9 +122,11 @@ describe('Vista Perfil - Cobertura Completa', () => {
         fireEvent.change(screen.getByPlaceholderText('Día'), { target: { value: '10' } });
         fireEvent.change(screen.getByPlaceholderText('Año'), { target: { value: '1999' } });
         
-        // Seleccionar Mes
-        const selects = screen.getAllByRole('combobox'); 
-        fireEvent.change(selects[0], { target: { value: '5' } }); 
+        // Seleccionar Mes (buscamos el select por su rol o etiqueta)
+        const selects = screen.getAllByRole('combobox');
+        if (selects.length > 0) {
+             fireEvent.change(selects[0], { target: { value: '5' } });
+        }
 
         // 2. Enviar Formulario
         const btn = screen.getByText('Guardar Cambios');
@@ -116,10 +137,9 @@ describe('Vista Perfil - Cobertura Completa', () => {
             expect(userStorage.updateUser).toHaveBeenCalledWith('u1', expect.objectContaining({
                 email: 'nuevo@email.com',
                 password: 'Nueva1234',
+                // Verificamos el formato de fecha: AAAA-MM-DD
                 birthdate: '1999-05-10'
             }));
-
-            expect(authService.login).toHaveBeenCalled();
 
             expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
                 title: 'Perfil Actualizado'
@@ -129,15 +149,17 @@ describe('Vista Perfil - Cobertura Completa', () => {
 
     // --- TEST 4: ERROR EN ACTUALIZACIÓN ---
     test('4. Manejo de error si falla la actualización', async () => {
-        // Forzamos fallo en el storage
-        vi.spyOn(userStorage, 'updateUser').mockReturnValue(null);
+        // Forzamos fallo en el storage devolviendo null (o lanzando error)
+        vi.spyOn(userStorage, 'updateUser').mockResolvedValue(null);
 
-        render(<BrowserRouter><Profile /></BrowserRouter>);
+        render(
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Profile />
+            </BrowserRouter>
+        );
         
-        // Esperar carga
         await waitFor(() => screen.getByDisplayValue('test@duocuc.cl'));
 
-        // Click en guardar
         const btn = screen.getByText('Guardar Cambios');
         fireEvent.click(btn);
 

@@ -27,6 +27,7 @@ const mockProducts: Product[] = [
         image: 'url1',
         stock: 20,
         minStock: 5,
+        description: 'Consola de última generación', // 🟢 Propiedad faltante agregada
         createdAt: '2023-01-01',
         updatedAt: '2023-01-01'
     },
@@ -38,6 +39,7 @@ const mockProducts: Product[] = [
         image: 'url2',
         stock: 2, // Stock bajo
         minStock: 5,
+        description: 'Mouse con 5000 DPI', // 🟢 Propiedad faltante agregada
         createdAt: '2023-01-01',
         updatedAt: '2023-01-01'
     }
@@ -85,7 +87,7 @@ describe('Componente ProductTable', () => {
             />
         );
 
-        // Ahora getAllByText encontrará exactamente la cantidad correcta porque limpiamos el DOM
+        // getAllByText encontrará la cantidad correcta porque limpiamos el DOM
         expect(screen.getAllByText(/Consola X/i).length).toBe(1);
         expect(screen.getAllByText(/Mouse Gamer/i).length).toBe(1);
     });
@@ -157,8 +159,6 @@ describe('Componente ProductTable', () => {
                 isAdmin={true} 
             />
         );
-
-        console.log(screen.debug())
         
         // Ahora sí
         expect(queryAllByTestId('icon-edit').length).toBeGreaterThan(0);
