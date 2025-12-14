@@ -5,17 +5,19 @@ import { Product } from '@/types/product';
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { ProductReviews } from '@/components/public/ProductReviews';
 import { Button } from '@/components/ui/button';
-import { addToCart } from '@/lib/cartStorage';
+// 🟢 Importamos la nueva función
+import { addToCart, getProductQuantityInCart } from '@/lib/cartStorage';
 import { toast } from 'sonner';
-import { ShoppingCart, ArrowLeft, Loader2, Plus, Minus } from 'lucide-react'; // Importar iconos nuevos
-import { Input } from '@/components/ui/input'; // Importar Input
+import { ShoppingCart, ArrowLeft, Loader2, Plus, Minus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1); // 🟢 Estado para cantidad
+  const [quantity, setQuantity] = useState(1);
 
+  // ... (useEffect y estados de carga igual que antes) ...
   useEffect(() => {
     const fetchProduct = async () => {
       if (id) {
@@ -52,12 +54,31 @@ const ProductDetail = () => {
   }
 
   const handleAddToCart = () => {
-    addToCart({ product, quantity });
-    toast.success(`${quantity} x ${product.name} agregado al carrito`);
-    window.dispatchEvent(new Event('cartUpdated'));
-    setQuantity(1);
+    // 🟢 VALIDACIÓN DE STOCK + CARRITO
+    const quantityInCart = getProductQuantityInCart(product.id);
+    const availableStock = product.stock - quantityInCart;
+
+    if (quantity > availableStock) {
+        if (availableStock <= 0) {
+            toast.error("¡Ya tienes todo el stock de este producto en tu carrito!");
+        } else {
+            toast.error(`No puedes agregar ${quantity}. Solo quedan ${availableStock} disponibles (considerando tu carrito).`);
+        }
+        return;
+    }
+
+    const success = addToCart({ product, quantity });
+    
+    if (success) {
+        toast.success(`${quantity} x ${product.name} agregado al carrito`);
+        window.dispatchEvent(new Event('cartUpdated'));
+        setQuantity(1);
+    } else {
+        toast.error("Error al agregar: Stock insuficiente.");
+    }
   };
 
+  // ... (Resto del componente igual: handleIncrement, handleDecrement, return JSX) ...
   const handleIncrement = () => {
     if (quantity < product.stock) setQuantity(q => q + 1);
   };
@@ -117,7 +138,6 @@ const ProductDetail = () => {
                         </span>
                      </p>
 
-                     {/* 🟢 Selector de Cantidad en Detalle */}
                      {product.stock > 0 && (
                         <div className="flex items-center gap-4 mb-4">
                             <span className="text-sm font-medium">Cantidad:</span>
@@ -143,7 +163,6 @@ const ProductDetail = () => {
                         disabled={product.stock === 0}
                         className="w-full md:w-auto bg-accent text-accent-foreground hover:bg-accent/90 text-lg px-8 py-6 flex items-center justify-center gap-2"
                      >
-                        {/* 🟢 Solo el ícono del carrito, o texto "Agotado" si no hay stock */}
                         {product.stock === 0 ? 'Agotado' : <ShoppingCart className="h-6 w-6" />}
                         {product.stock > 0 && <span>Agregar al Carrito</span>}
                      </Button>

@@ -3,7 +3,8 @@ import { Product } from '@/types/product';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { ShoppingCart, Eye, Plus, Minus } from 'lucide-react';
-import { addToCart } from '@/lib/cartStorage';
+// 🟢 Importamos la nueva función auxiliar
+import { addToCart, getProductQuantityInCart } from '@/lib/cartStorage';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -16,17 +17,35 @@ export const ProductCard = ({ product }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
 
   const handleAddToCart = () => {
-    if (quantity > product.stock) {
-        toast.error(`Solo quedan ${product.stock} unidades disponibles.`);
+    // 1. Obtener cuánto ya tenemos en el carrito
+    const quantityInCart = getProductQuantityInCart(product.id);
+    const availableStock = product.stock - quantityInCart;
+
+    // 2. Validación
+    if (quantity > availableStock) {
+        if (availableStock <= 0) {
+            toast.error("Ya tienes todo el stock disponible en tu carrito.");
+        } else {
+            toast.error(`Solo puedes agregar ${availableStock} unidad(es) más.`);
+        }
         return;
     }
     
-    addToCart({ product, quantity });
-    toast.success(`${quantity} x ${product.name} agregado(s) al carrito`);
-    window.dispatchEvent(new Event('cartUpdated'));
-    setQuantity(1); // Resetear cantidad
+    // 3. Intentar agregar (ahora addToCart devuelve boolean, pero ya validamos arriba)
+    const success = addToCart({ product, quantity });
+    
+    if (success) {
+        toast.success(`${quantity} x ${product.name} agregado(s) al carrito`);
+        window.dispatchEvent(new Event('cartUpdated'));
+        setQuantity(1);
+    } else {
+        toast.error("No se pudo agregar al carrito por falta de stock.");
+    }
   };
 
+  // ... Resto del código (handleIncrement, handleDecrement, render, etc.) ...
+  // Solo asegúrate de mantener el resto del componente igual
+  
   const handleIncrement = () => {
     if (quantity < product.stock) {
       setQuantity(prev => prev + 1);
@@ -62,6 +81,7 @@ export const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <Card className="h-full flex flex-col overflow-hidden border-border bg-card hover:border-accent/50 transition-all duration-300 hover:shadow-lg hover:shadow-accent/10 group">
+      {/* ... (Todo el JSX igual que antes) ... */}
       <CardHeader className="p-0">
         <div className="aspect-square overflow-hidden relative">
           <Link to={`/producto/${product.id}`}>
@@ -89,7 +109,6 @@ export const ProductCard = ({ product }: ProductCardProps) => {
             {product.stock > 0 ? `Stock: ${product.stock} unidades` : 'Sin stock'}
             </p>
 
-            {/* 🟢 Selector de Cantidad */}
             {product.stock > 0 && (
                 <div className="flex items-center gap-2 mb-3">
                     <Button 
@@ -121,7 +140,6 @@ export const ProductCard = ({ product }: ProductCardProps) => {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0 flex gap-2">
-        {/* 🟢 UN SOLO BOTÓN DE CARRITO (Con ícono) */}
         <Button
           onClick={handleAddToCart}
           disabled={product.stock === 0}

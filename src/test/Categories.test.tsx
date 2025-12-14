@@ -11,13 +11,17 @@ vi.mock('@/lib/service/authenticateUser', () => ({
     hasAdminAccess: () => false
 }));
 
+// 🟢 CORRECCIÓN IMPORTANTE AQUÍ
 vi.mock('@/lib/cartStorage', () => ({
-    addToCart: vi.fn(),
-    getCartCount: () => 0
+    // Ahora addToCart devuelve true para simular éxito
+    addToCart: vi.fn().mockReturnValue(true), 
+    getCartCount: () => 0,
+    // Agregamos la nueva función que usa el ProductCard, retornando 0 para que no bloquee la compra
+    getProductQuantityInCart: vi.fn().mockReturnValue(0) 
 }));
 
 vi.mock('sonner', () => ({
-    toast: { success: vi.fn() }
+    toast: { success: vi.fn(), error: vi.fn() }
 }));
 
 describe('Vista Categorías - Cobertura Completa', () => {
@@ -52,12 +56,9 @@ describe('Vista Categorías - Cobertura Completa', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         
-        // 🟢 MOCK PRINCIPAL: getProducts
         vi.spyOn(productStorage, 'getProducts').mockResolvedValue(mockProducts as any);
 
-        // 🟢 MOCK SECUNDARIO: getProductsByCategory
         vi.spyOn(productStorage, 'getProductsByCategory').mockImplementation(async (category) => {
-            // Ajustamos para que coincida con los IDs del componente (ej. 'consolas' vs 'Consolas')
             return mockProducts.filter(p => p.category.toLowerCase() === category.toLowerCase()) as any;
         });
     });
@@ -74,14 +75,9 @@ describe('Vista Categorías - Cobertura Completa', () => {
             </BrowserRouter>
         );
 
-        // findBy espera a que el elemento aparezca (útil para datos asíncronos)
         expect(await screen.findByText('PS5')).toBeDefined();
         expect(await screen.findByText('Teclado RGB')).toBeDefined();
         
-        // CORRECCIÓN: El componente no muestra un contador de texto "Mostrando X productos",
-        // por lo que eliminamos esa expectativa para que el test pase.
-        
-        // Verificamos el botón "Todo" (El componente usa "Todo", no "Todos")
         const allBtn = await screen.findByRole('button', { 
             name: (content) => /Todo/i.test(content) 
         });
@@ -95,25 +91,18 @@ describe('Vista Categorías - Cobertura Completa', () => {
             </BrowserRouter>
         );
 
-        // Esperar carga inicial
         await screen.findByText('PS5');
 
-        // Click en Consolas
         const consolasBtn = await screen.findByRole('button', { 
             name: (content) => /Consolas/i.test(content) 
         });
         fireEvent.click(consolasBtn);
 
-        // Esperamos que aparezca el filtrado
-        // PS5 debe mantenerse
         expect(await screen.findByText('PS5')).toBeDefined();
         
-        // Verificamos que NO esté el teclado. Esperamos a que desaparezca.
         await waitFor(() => {
             expect(screen.queryByText('Teclado RGB')).toBeNull();
         });
-
-        // CORRECCIÓN: Eliminada verificación de contador que no existe visualmente
     });
 
     test('3. Debe restaurar la lista completa al volver a "Todo"', async () => {
@@ -123,27 +112,22 @@ describe('Vista Categorías - Cobertura Completa', () => {
             </BrowserRouter>
         );
 
-        // Esperar carga inicial
         await screen.findByText('PS5');
 
-        // 1. Filtrar
         const accesoriosBtn = await screen.findByRole('button', { 
             name: (content) => /Accesorios/i.test(content) 
         });
         fireEvent.click(accesoriosBtn);
         
-        // Esperamos que desaparezca PS5
         await waitFor(() => {
             expect(screen.queryByText('PS5')).toBeNull();
         });
 
-        // 2. Volver a todos (Buscamos "Todo")
         const todosBtn = await screen.findByRole('button', { 
             name: (content) => /Todo/i.test(content) 
         });
         fireEvent.click(todosBtn);
 
-        // PS5 debe volver
         expect(await screen.findByText('PS5')).toBeDefined();
     });
 
@@ -156,22 +140,17 @@ describe('Vista Categorías - Cobertura Completa', () => {
 
         await screen.findByText('PS5');
 
-        // Intentamos buscar un botón "Ropa". 
         const ropaBtn = screen.queryByRole('button', { 
             name: (content) => /Ropa/i.test(content) 
         });
         
         if (ropaBtn) {
             fireEvent.click(ropaBtn);
-            // CORRECCIÓN: El mensaje en el componente es "No se encontraron productos..."
             expect(await screen.findByText(/No se encontraron productos/i)).toBeDefined();
-        } else {
-            console.log('Botón Ropa no encontrado, saltando click.');
         }
     });
 
     test('5. Debe manejar el caso donde no hay productos en el sistema', async () => {
-        // Sobrescribimos el mock para este test específico
         vi.spyOn(productStorage, 'getProducts').mockResolvedValue([]);
         
         render(
@@ -180,7 +159,6 @@ describe('Vista Categorías - Cobertura Completa', () => {
             </BrowserRouter>
         );
 
-        // CORRECCIÓN: Actualizamos el texto esperado
         expect(await screen.findByText(/No se encontraron productos/i)).toBeDefined();
     });
 });

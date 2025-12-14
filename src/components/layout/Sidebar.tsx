@@ -10,16 +10,12 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
-  const navigate = useNavigate(); // 🟢 Hook para redirección
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout(); // Limpia la sesión
-    
-    // 🟢 Despacha evento para que otros componentes se enteren
+    logout();
     window.dispatchEvent(new Event('authChange')); 
     window.dispatchEvent(new Event('storage'));
-
-    // 🟢 Redirige inmediatamente
     navigate('/'); 
   };
 
@@ -59,12 +55,18 @@ export function Sidebar({ className }: SidebarProps) {
                 Configuración
             </h2>
             <div className="space-y-1">
-                 <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Ajustes
+                 {/* 🟢 CORRECCIÓN: Ahora el botón Ajustes lleva al Perfil */}
+                 <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-muted-foreground hover:text-foreground"
+                    asChild
+                 >
+                    <Link to="/perfil">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Ajustes
+                    </Link>
                  </Button>
                  
-                 {/* 🟢 Botón Cerrar Sesión Actualizado */}
                  <Button 
                     variant="ghost" 
                     className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10"

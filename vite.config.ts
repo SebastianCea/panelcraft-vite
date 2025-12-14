@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   test:{
-    global:true, 
+    globals:true, 
     environment: 'jsdom', //pruebo el dominio
 
   }

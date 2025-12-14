@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { getCurrentUser } from '@/lib/service/authenticateUser'; // Eliminamos login que no se usa aquí
+import { getCurrentUser, login, updateLocalSession } from '@/lib/service/authenticateUser';
 import { updateUser } from '@/lib/userStorage';
 import { getOrders } from '@/lib/orderStorage';
 import { User } from '@/types/user';
@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { useToast } from '@/hooks/use-toast';
-import { User as UserIcon, Gift, Save, Calendar, Mail, Lock, ShoppingBag, Package } from 'lucide-react';
+import { User as UserIcon, Gift, Save, Calendar, Mail, Lock, ShoppingBag, Package, KeyRound, Pencil, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -25,10 +25,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// Esquema de validación para edición de perfil
 const profileSchema = z.object({
   email: z.string().email('Correo inválido').min(1, 'El correo es requerido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(20, 'Máximo 20 caracteres'),
+  currentPassword: z.string().min(1, 'Debes ingresar tu contraseña actual para guardar cambios'),
+  newPassword: z.string().optional().refine(val => !val || val.length >= 6, {
+    message: 'La nueva contraseña debe tener al menos 6 caracteres',
+  }),
   birthDay: z.string().min(1, 'Día requerido'),
   birthMonth: z.string().min(1, 'Mes requerido'),
   birthYear: z.string().min(4, 'Año requerido'),
@@ -39,10 +41,22 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 const Profile = () => {
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isEditing, setIsEditing] = useState(false); // 🟢 Nuevo estado para controlar la edición
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Cargar usuario y órdenes al montar
+  const form = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      email: '',
+      currentPassword: '',
+      newPassword: '',
+      birthDay: '',
+      birthMonth: '',
+      birthYear: '',
+    },
+  });
+
   useEffect(() => {
     const loggedUser = getCurrentUser();
     if (!loggedUser) {
@@ -51,12 +65,9 @@ const Profile = () => {
     }
     setUser(loggedUser);
 
-    // 🟢 CORRECCIÓN: Función asíncrona para cargar órdenes
     const fetchOrders = async () => {
       try {
-        // Esperamos a que la promesa se resuelva
         const allOrders = await getOrders();
-        
         if (Array.isArray(allOrders)) {
             const userOrders = allOrders.filter(order => order.rutCliente === loggedUser.rut);
             setOrders(userOrders.reverse());
@@ -67,51 +78,69 @@ const Profile = () => {
     };
 
     fetchOrders();
-
   }, [navigate]);
 
-  const form = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      birthDay: '',
-      birthMonth: '',
-      birthYear: '',
-    },
-  });
-
-  useEffect(() => {
-    if (user) {
-      const [year, month, day] = user.birthdate.split('-');
-      form.reset({
-        email: user.email,
-        password: user.password,
+  // Función auxiliar para resetear el formulario con los datos actuales del usuario
+  const resetFormToUserValues = (userData: User) => {
+    const [year, month, day] = userData.birthdate ? userData.birthdate.split('-') : ['','',''];
+    form.reset({
+        email: userData.email,
+        currentPassword: '',
+        newPassword: '',
         birthYear: year,
         birthMonth: month,
         birthDay: day,
-      });
+    });
+  };
+
+  useEffect(() => {
+    if (user) {
+        resetFormToUserValues(user);
     }
-  }, [user, form]);
+  }, [user]); // Quitamos 'form' de las dependencias para evitar loops
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (user) resetFormToUserValues(user); // Restaurar valores originales
+    toast({ description: "Edición cancelada." });
+  };
 
   const onSubmit = async (data: ProfileFormData) => {
     if (!user) return;
 
-    const birthdateFormatted = `${data.birthYear}-${data.birthMonth.padStart(2, '0')}-${data.birthDay.padStart(2, '0')}`;
-
-    const updates: Partial<User> = {
-      email: data.email,
-      password: data.password,
-      birthdate: birthdateFormatted,
-    };
-
     try {
+        const authCheck = await login({ 
+            email: user.email, 
+            password: data.currentPassword 
+        });
+
+        if (!authCheck.success) {
+            toast({
+                title: 'Error de Seguridad',
+                description: 'La contraseña actual es incorrecta.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const birthdateFormatted = `${data.birthYear}-${data.birthMonth.padStart(2, '0')}-${data.birthDay.padStart(2, '0')}`;
+
+        const updates: any = {
+            email: data.email,
+            birthdate: birthdateFormatted,
+        };
+
+        if (data.newPassword && data.newPassword.trim() !== '') {
+            updates.password = data.newPassword;
+            updates.passwordConfirm = data.newPassword;
+        }
+
         const updatedUser = await updateUser(user.id, updates);
 
         if (updatedUser) {
-            // 🟢 CORRECCIÓN: Eliminamos login(updatedUser) porque causa conflicto de tipos.
-            // Actualizamos solo el estado local.
             setUser(updatedUser);
+            updateLocalSession(updatedUser);
+            setIsEditing(false); // 🟢 Salir del modo edición al guardar
             
             toast({
                 title: 'Perfil Actualizado',
@@ -122,6 +151,7 @@ const Profile = () => {
             throw new Error("No se pudo actualizar");
         }
     } catch (error) {
+        console.error(error);
         toast({
             title: 'Error',
             description: 'No se pudo actualizar el perfil.',
@@ -154,6 +184,7 @@ const Profile = () => {
             <UserIcon className="h-8 w-8" /> Mi Perfil
           </h1>
 
+          {/* ... (Tarjetas de Datos Personales y Beneficios se mantienen igual) ... */}
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="bg-card border-border">
                 <CardHeader>
@@ -191,6 +222,7 @@ const Profile = () => {
             </Card>
           </div>
 
+          {/* ... (Tarjeta Historial de Compras se mantiene igual) ... */}
           <Card className="bg-card border-border mt-8">
             <CardHeader>
                 <CardTitle className="text-xl text-accent flex items-center gap-2">
@@ -225,7 +257,6 @@ const Profile = () => {
                                         <TableCell className="font-medium">#{order.id.slice(0, 6)}</TableCell>
                                         <TableCell>{order.date}</TableCell>
                                         <TableCell>
-                                            {/* 🟢 CORRECCIÓN: Usamos 'Recibido' en lugar de 'Entregado' para coincidir con el tipo Order */}
                                             <Badge variant="outline" className={
                                                 order.statePedido === 'Recibido' ? 'border-green-500 text-green-500' : 
                                                 order.statePedido === 'En camino' ? 'border-blue-500 text-blue-500' :
@@ -260,12 +291,21 @@ const Profile = () => {
             </CardContent>
           </Card>
 
+          {/* 🟢 TARJETA DE EDICIÓN MEJORADA */}
           <Card className="bg-card border-border mt-8">
-            <CardHeader>
-                <CardTitle className="text-xl text-foreground flex items-center gap-2">
-                    <Save className="h-5 w-5" /> Editar Cuenta
-                </CardTitle>
-                <CardDescription>Actualiza tu correo, contraseña o fecha de nacimiento.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="text-xl text-foreground flex items-center gap-2">
+                        <Save className="h-5 w-5" /> Datos de Cuenta
+                    </CardTitle>
+                    <CardDescription>Información privada de contacto y seguridad.</CardDescription>
+                </div>
+                {/* 🟢 Botón para Habilitar Edición */}
+                {!isEditing && (
+                    <Button onClick={() => setIsEditing(true)} variant="outline" className="gap-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+                        <Pencil className="h-4 w-4" /> Editar Datos
+                    </Button>
+                )}
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -277,9 +317,10 @@ const Profile = () => {
                                 name="email"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2"><Mail className="h-4 w-4" /> Nuevo Correo</FormLabel>
+                                        <FormLabel className="flex items-center gap-2"><Mail className="h-4 w-4" /> Correo Electrónico</FormLabel>
                                         <FormControl>
-                                            <Input {...field} className="bg-input border-border" />
+                                            {/* 🟢 Disabled si no está editando */}
+                                            <Input {...field} className="bg-input border-border" disabled={!isEditing} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -288,12 +329,20 @@ const Profile = () => {
 
                             <FormField
                                 control={form.control}
-                                name="password"
+                                name="newPassword"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2"><Lock className="h-4 w-4" /> Nueva Contraseña</FormLabel>
+                                        <FormLabel className="flex items-center gap-2 text-muted-foreground">
+                                            <Lock className="h-4 w-4" /> Nueva Contraseña {isEditing && "(Opcional)"}
+                                        </FormLabel>
                                         <FormControl>
-                                            <Input type="text" {...field} className="bg-input border-border" />
+                                            <Input 
+                                                type="password" 
+                                                placeholder={isEditing ? "Escribe solo si deseas cambiarla" : "••••••••"} 
+                                                {...field} 
+                                                className="bg-input border-border"
+                                                disabled={!isEditing} // 🟢 Disabled
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -305,33 +354,67 @@ const Profile = () => {
                             <FormLabel className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Fecha de Nacimiento</FormLabel>
                             <div className="grid grid-cols-3 gap-4">
                                 <FormField control={form.control} name="birthDay" render={({ field }) => (
-                                    <FormItem><FormControl><Input placeholder="Día" className="bg-input border-border" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormControl><Input placeholder="Día" className="bg-input border-border" {...field} disabled={!isEditing} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="birthMonth" render={({ field }) => (
                                     <FormItem>
                                         <FormControl>
                                             <select 
-                                                className="flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                className="flex h-10 w-full rounded-md border border-border bg-input px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
                                                 {...field}
+                                                disabled={!isEditing} // 🟢 Disabled
                                             >
                                                 <option value="">Mes</option>
                                                 {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                                             </select>
                                         </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                        <FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="birthYear" render={({ field }) => (
-                                    <FormItem><FormControl><Input placeholder="Año" className="bg-input border-border" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormControl><Input placeholder="Año" className="bg-input border-border" {...field} disabled={!isEditing} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-4">
-                            <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 w-full md:w-auto">
-                                Guardar Cambios
-                            </Button>
-                        </div>
+                        {/* 🟢 SECCIÓN DE CONFIRMACIÓN (SOLO VISIBLE AL EDITAR) */}
+                        {isEditing && (
+                            <div className="border-t border-border pt-6 mt-6 animate-in fade-in slide-in-from-top-4">
+                                <div className="bg-accent/5 p-4 rounded-lg border border-accent/20">
+                                    <h4 className="text-sm font-semibold text-accent mb-4 flex items-center gap-2">
+                                        <KeyRound className="h-4 w-4" /> Confirmar Cambios
+                                    </h4>
+                                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                                        <FormField
+                                            control={form.control}
+                                            name="currentPassword"
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1 w-full">
+                                                    <FormLabel>Contraseña Actual (Requerida) *</FormLabel>
+                                                    <FormControl>
+                                                        <Input 
+                                                            type="password" 
+                                                            placeholder="Ingresa tu contraseña para guardar" 
+                                                            {...field} 
+                                                            className="bg-input border-border" 
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="flex gap-2 w-full md:w-auto">
+                                            <Button type="button" variant="ghost" onClick={handleCancelEdit} className="flex-1 md:flex-none gap-2">
+                                                <X className="h-4 w-4" /> Cancelar
+                                            </Button>
+                                            <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90 flex-1 md:flex-none">
+                                                Guardar Todo
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                     </form>
                 </Form>
             </CardContent>
